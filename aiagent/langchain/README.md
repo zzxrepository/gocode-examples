@@ -5,10 +5,16 @@
 ## 准备环境
 
 ```bash
-cd gocode-examples/aiagent/langchain
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+cd gocode-examples/aiagent/python
+uv sync
+```
+
+该目录只管理 Python 示例依赖，并创建唯一的 `python/.venv`。`langchain` 与 `langgraph` 共享这个环境；同级的 Go 示例不受影响。
+
+再准备模型配置：
+
+```bash
+cd ../langchain
 cp .env.example .env
 ```
 
@@ -23,9 +29,10 @@ export OPENAI_MODEL='gpt-4.1-mini'
 ## 运行
 
 ```bash
-python chat.py
-python structured_output.py
-python agent_tools.py
+cd gocode-examples/aiagent/python
+uv run python ../langchain/chat.py
+uv run python ../langchain/structured_output.py
+uv run python ../langchain/agent_tools.py
 ```
 
 `agent_tools.py` 中的开放时间数据是本地固定数据，不会访问网络。示例用于观察模型请求工具、运行时执行工具、工具结果回填模型的完整闭环。真实带副作用工具仍必须在工具实现内部做鉴权、参数校验、超时、审计和确认。

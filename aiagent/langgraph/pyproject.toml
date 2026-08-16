@@ -1,9 +1,0 @@
-[project]
-name = "langgraph-approval-workflow"
-version = "0.1.0"
-description = "LangGraph 状态、循环、检查点与人工审批示例"
-requires-python = ">=3.10"
-dependencies = ["langgraph>=1.0,<2.0"]
-
-[tool.uv]
-package = false

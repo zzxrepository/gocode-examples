@@ -14,9 +14,12 @@
 
 ## 运行
 
-    python -m venv .venv
-    source .venv/bin/activate
-    pip install -e .
-    python approval_workflow.py
+```bash
+cd gocode-examples/aiagent/python
+uv sync
+uv run python ../langgraph/approval_workflow.py
+```
+
+`python/.venv` 是 LangChain 与 LangGraph 示例共享的唯一 Python 虚拟环境；它不影响同级的 Go 示例。
 
 示例中的内存 checkpointer 会在进程结束后清空。真实服务需要使用持久化 checkpointer，并设计状态保留策略、鉴权、幂等写入和人工审批界面。
