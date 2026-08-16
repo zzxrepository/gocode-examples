@@ -1,0 +1,8 @@
+Name: user.rpc
+ListenOn: 0.0.0.0:9181
+MySQLDSN: "blog:blog123@tcp(127.0.0.1:3307)/gozero_demo?parseTime=true&loc=Local"
+RedisAddr: "127.0.0.1:6380"
+RedisPassword: ""
+RedisDB: 1
+JWTSecret: "change-this-local-secret"
+JWTExpire: "24h"

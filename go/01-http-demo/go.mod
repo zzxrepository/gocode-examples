@@ -2,6 +2,8 @@ module gin-demo-v1
 
 go 1.26
 
+toolchain go1.26.5
+
 require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang-jwt/jwt/v5 v5.2.1

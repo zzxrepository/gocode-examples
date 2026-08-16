@@ -1,0 +1,23 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: gozero_demo
+      MYSQL_USER: blog
+      MYSQL_PASSWORD: blog123
+    ports:
+      - "3307:3306"
+    volumes:
+      - gozero_mysql:/var/lib/mysql
+      - ../migrations/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+  redis:
+    image: redis:7.2
+    ports:
+      - "6380:6379"
+    volumes:
+      - gozero_redis:/data
+
+volumes:
+  gozero_mysql:
+  gozero_redis:

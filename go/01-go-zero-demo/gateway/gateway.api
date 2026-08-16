@@ -1,0 +1,69 @@
+syntax = "v1"
+
+type RegisterRequest {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type LoginRequest {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type TokenResponse {
+	Token  string `json:"token"`
+	UserID int64  `json:"userId"`
+}
+
+type PostRequest {
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+type PostResponse {
+	ID      int64  `json:"id"`
+	UserID  int64  `json:"userId"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+type PostListResponse {
+	Posts []PostResponse `json:"posts"`
+}
+
+type IDRequest {
+	ID int64 `path:"id"`
+}
+
+type UpdateRequest {
+	ID      int64  `path:"id"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+@server (
+	prefix: /api/v1
+)
+service gateway {
+	@handler Register
+	post /auth/register (RegisterRequest) returns (TokenResponse)
+
+	@handler Login
+	post /auth/login (LoginRequest) returns (TokenResponse)
+
+	@handler ListPosts
+	get /posts returns (PostListResponse)
+
+	@handler GetPost
+	get /posts/:id (IDRequest) returns (PostResponse)
+
+	@handler CreatePost
+	post /posts (PostRequest) returns (PostResponse)
+
+	@handler UpdatePost
+	put /posts/:id (UpdateRequest) returns (PostResponse)
+
+	@handler DeletePost
+	delete /posts/:id (IDRequest)
+}
+

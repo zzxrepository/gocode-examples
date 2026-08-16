@@ -1,0 +1,9 @@
+Name: gateway
+Host: 0.0.0.0
+Port: 8180
+UserRpc:
+  Endpoints:
+    - 127.0.0.1:9181
+PostRpc:
+  Endpoints:
+    - 127.0.0.1:9182
