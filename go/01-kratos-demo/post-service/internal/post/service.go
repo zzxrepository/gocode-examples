@@ -3,7 +3,7 @@ package post
 import (
 	"context"
 
-	"gin-demo/post-service/internal/model"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/post-service/internal/model"
 )
 
 type Service struct {

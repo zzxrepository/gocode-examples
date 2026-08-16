@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package blog.post.v1;
+
+option go_package = "github.com/zzxrepository/gocode-examples/go/01-kratos-demo/post-service/api;postapi";
+
+service Post {
+  rpc List(ListRequest) returns (PostListReply);
+  rpc Get(PostIDRequest) returns (PostReply);
+  rpc Create(CreateRequest) returns (PostReply);
+  rpc Update(UpdateRequest) returns (PostReply);
+  rpc Delete(DeleteRequest) returns (Empty);
+}
+
+message Empty {}
+message ListRequest {}
+message PostIDRequest { int64 id = 1; }
+message CreateRequest { int64 user_id = 1; string title = 2; string content = 3; }
+message UpdateRequest { int64 user_id = 1; int64 id = 2; string title = 3; string content = 4; }
+message DeleteRequest { int64 user_id = 1; int64 id = 2; }
+message PostReply { int64 id = 1; int64 user_id = 2; string title = 3; string content = 4; }
+message PostListReply { repeated PostReply posts = 1; }

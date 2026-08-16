@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"gin-demo/post-service/internal/httpx"
-	"gin-demo/post-service/internal/model"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/post-service/internal/httpx"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/post-service/internal/model"
 )
 
 type Handler struct {

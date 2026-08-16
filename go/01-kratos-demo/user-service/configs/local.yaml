@@ -1,5 +1,5 @@
 server:
-  http_addr: ":8081"
+  http_addr: ":9081"
 
 rate_limit:
   auth_rps: 5

@@ -4,10 +4,10 @@ import (
 	"log"
 	"net/http"
 
-	"gin-demo/gateway/internal/config"
-	"gin-demo/gateway/internal/gateway"
-	"gin-demo/gateway/internal/kratosx"
-	"gin-demo/gateway/internal/ratelimit"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/gateway/internal/config"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/gateway/internal/gateway"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/gateway/internal/kratosx"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/gateway/internal/ratelimit"
 )
 
 func main() {
@@ -16,8 +16,14 @@ func main() {
 		log.Fatalf("load config: %v", err)
 	}
 
-	userClient := gateway.NewUserClient(cfg.UserServiceURL)
-	postClient := gateway.NewPostClient(cfg.PostServiceURL)
+	userClient, err := gateway.NewUserClient(cfg.UserServiceURL)
+	if err != nil {
+		log.Fatalf("connect user rpc: %v", err)
+	}
+	postClient, err := gateway.NewPostClient(cfg.PostServiceURL)
+	if err != nil {
+		log.Fatalf("connect post rpc: %v", err)
+	}
 	gatewayHandler := gateway.NewHandler(userClient, postClient)
 
 	mux := http.NewServeMux()

@@ -2,7 +2,7 @@ GO := /Users/mmzhang/DevTools/SDK/go/1.26.5/bin/go
 GOROOT := /Users/mmzhang/DevTools/SDK/go/1.26.5
 GOCACHE := $(CURDIR)/.cache/go-build
 
-.PHONY: run-gateway run-user run-post run-all tidy test docker-up docker-down
+.PHONY: run-gateway run-user run-post run-all tidy test generate docker-up docker-down
 
 GATEWAY_CONFIG ?= configs/local.yaml
 USER_CONFIG ?= configs/local.yaml
@@ -35,3 +35,7 @@ docker-up:
 
 docker-down:
 	docker compose -f scripts/docker-compose.yml down
+
+generate:
+	PATH=$(dir $(GO)):$$PATH GOROOT=$(GOROOT) protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative user-service/api/user.proto
+	PATH=$(dir $(GO)):$$PATH GOROOT=$(GOROOT) protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative post-service/api/post.proto

@@ -2,12 +2,15 @@ package main
 
 import (
 	"log"
-	"net/http"
 
-	"gin-demo/post-service/internal/config"
-	"gin-demo/post-service/internal/kratosx"
-	"gin-demo/post-service/internal/post"
-	"gin-demo/post-service/internal/repository"
+	postapi "github.com/zzxrepository/gocode-examples/go/01-kratos-demo/post-service/api"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/post-service/internal/config"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/post-service/internal/grpcapi"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/post-service/internal/post"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/post-service/internal/repository"
+
+	kratos "github.com/go-kratos/kratos/v2"
+	kgrpc "github.com/go-kratos/kratos/v2/transport/grpc"
 )
 
 func main() {
@@ -24,12 +27,9 @@ func main() {
 
 	postRepo := post.NewRepository(db)
 	postService := post.NewService(postRepo)
-	postHandler := post.NewHandler(postService)
-
-	mux := http.NewServeMux()
-	postHandler.RegisterRoutes(mux)
-
-	app := kratosx.NewHTTPApp("blog.post", cfg.HTTPAddr, mux)
+	server := kgrpc.NewServer(kgrpc.Address(cfg.HTTPAddr))
+	postapi.RegisterPostServer(server, grpcapi.New(postService))
+	app := kratos.New(kratos.Name("blog.post"), kratos.Server(server))
 	if err := app.Run(); err != nil {
 		log.Fatalf("run post service: %v", err)
 	}

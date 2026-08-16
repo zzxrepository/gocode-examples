@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"gin-demo/post-service/internal/model"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/post-service/internal/model"
 )
 
 type Repository struct {

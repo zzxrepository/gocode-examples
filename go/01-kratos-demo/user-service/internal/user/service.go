@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"gin-demo/user-service/internal/model"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/user-service/internal/model"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"gin-demo/post-service/internal/model"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/post-service/internal/model"
 )
 
 func ReadJSON(r *http.Request, dst interface{}) error {

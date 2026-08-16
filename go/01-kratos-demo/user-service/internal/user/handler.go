@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"gin-demo/user-service/internal/httpx"
-	"gin-demo/user-service/internal/model"
-	"gin-demo/user-service/internal/ratelimit"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/user-service/internal/httpx"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/user-service/internal/model"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/user-service/internal/ratelimit"
 )
 
 type Handler struct {

@@ -2,13 +2,15 @@ package main
 
 import (
 	"log"
-	"net/http"
 
-	"gin-demo/user-service/internal/config"
-	"gin-demo/user-service/internal/kratosx"
-	"gin-demo/user-service/internal/ratelimit"
-	"gin-demo/user-service/internal/repository"
-	"gin-demo/user-service/internal/user"
+	userapi "github.com/zzxrepository/gocode-examples/go/01-kratos-demo/user-service/api"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/user-service/internal/config"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/user-service/internal/grpcapi"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/user-service/internal/repository"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/user-service/internal/user"
+
+	kratos "github.com/go-kratos/kratos/v2"
+	kgrpc "github.com/go-kratos/kratos/v2/transport/grpc"
 )
 
 func main() {
@@ -32,13 +34,9 @@ func main() {
 	userRepo := user.NewRepository(db)
 	sessionRepo := user.NewSessionRepository(rdb)
 	userService := user.NewService(userRepo, sessionRepo, cfg.JWTSecret, cfg.JWTExpire)
-	authLimiter := ratelimit.NewPerIP(cfg.AuthRateLimitRPS, cfg.AuthRateLimitBurst)
-	userHandler := user.NewHandler(userService, authLimiter)
-
-	mux := http.NewServeMux()
-	userHandler.RegisterRoutes(mux)
-
-	app := kratosx.NewHTTPApp("blog.user", cfg.HTTPAddr, mux)
+	server := kgrpc.NewServer(kgrpc.Address(cfg.HTTPAddr))
+	userapi.RegisterUserServer(server, grpcapi.New(userService))
+	app := kratos.New(kratos.Name("blog.user"), kratos.Server(server))
 	if err := app.Run(); err != nil {
 		log.Fatalf("run user service: %v", err)
 	}

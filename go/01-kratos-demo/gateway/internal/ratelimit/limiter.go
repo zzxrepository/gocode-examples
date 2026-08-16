@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gin-demo/gateway/internal/httpx"
+	"github.com/zzxrepository/gocode-examples/go/01-kratos-demo/gateway/internal/httpx"
 
 	"golang.org/x/time/rate"
 )
