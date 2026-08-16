@@ -52,6 +52,14 @@ make run-gateway
 
 也可以使用 `make run-all`；它适合快速观察输出，停止时需自行终止三个进程。Docker 使用宿主机端口 MySQL `3307`、Redis `6380`，因此可与 Kratos 示例的 `3306`、`6379` 同时运行。
 
+三个服务已启动后，可执行一次完整的 REST → User RPC → Post RPC 冒烟验证：
+
+~~~bash
+make smoke
+~~~
+
+该命令会生成一个带时间戳的测试账号，完成注册、携带令牌创建文章并读取文章列表。默认访问 `http://127.0.0.1:8180`；如需调整网关地址，可设置 `GOZERO_GATEWAY_ADDR`。
+
 ## API smoke test
 
 ~~~bash

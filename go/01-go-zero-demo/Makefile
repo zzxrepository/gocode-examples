@@ -2,7 +2,7 @@ GO := /Users/mmzhang/DevTools/SDK/go/1.26.5/bin/go
 GOROOT := /Users/mmzhang/DevTools/SDK/go/1.26.5
 GOCACHE ?= $(CURDIR)/.cache/go-build
 
-.PHONY: run-gateway run-user run-post run-all test tidy generate docker-up docker-down
+.PHONY: run-gateway run-user run-post run-all test smoke tidy generate docker-up docker-down
 
 run-gateway:
 	GOROOT=$(GOROOT) GOCACHE=$(GOCACHE) $(GO) run ./gateway -f gateway/etc/gateway.yaml
@@ -20,6 +20,9 @@ run-all:
 
 test:
 	GOROOT=$(GOROOT) GOCACHE=$(GOCACHE) $(GO) test ./...
+
+smoke:
+	./scripts/smoke.sh
 
 tidy:
 	GOROOT=$(GOROOT) GOCACHE=$(GOCACHE) $(GO) mod tidy
