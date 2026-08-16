@@ -1,0 +1,25 @@
+// Deadlines 示例仍然使用普通的一元 RPC。
+// 区别不在 proto，而在客户端调用时传入带超时的 context。
+syntax = "proto3";
+
+package proto;
+
+option go_package = "go-grpc-deadlines/proto;proto";
+
+// SimpleRequest 是客户端发送给服务端的请求。
+message SimpleRequest {
+  string data = 1;
+}
+
+// SimpleResponse 是服务端返回给客户端的响应。
+message SimpleResponse {
+  int32 code = 1;
+  string value = 2;
+}
+
+// Simple 定义一个最基础的一元服务。
+service Simple {
+  // Route 本身没有写 deadline。
+  // deadline 是运行时行为，由客户端 context 控制。
+  rpc Route(SimpleRequest) returns (SimpleResponse) {}
+}

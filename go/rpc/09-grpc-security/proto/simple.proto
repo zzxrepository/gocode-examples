@@ -1,0 +1,23 @@
+// 安全认证示例：proto 仍然是普通一元 RPC。
+// TLS 和 token 认证属于传输层/调用层配置，不需要写进业务 message。
+syntax = "proto3";
+
+package proto;
+
+option go_package = "go-grpc-security/proto;proto";
+
+// SimpleRequest 是客户端请求。
+message SimpleRequest {
+  string data = 1;
+}
+
+// SimpleResponse 是服务端响应。
+message SimpleResponse {
+  int32 code = 1;
+  string value = 2;
+}
+
+// Simple 定义受 TLS 和 token 保护的一元服务。
+service Simple {
+  rpc Route(SimpleRequest) returns (SimpleResponse) {}
+}

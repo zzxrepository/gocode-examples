@@ -1,0 +1,109 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "proto/simple.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "Simple"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/example/route": {
+      "post": {
+        "operationId": "Simple_Route",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/protoOuterMessage"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/protoInnerMessage"
+            }
+          }
+        ],
+        "tags": [
+          "Simple"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "protoInnerMessage": {
+      "type": "object",
+      "properties": {
+        "someInteger": {
+          "type": "integer",
+          "format": "int32",
+          "title": "HTTP JSON 字段可以写 someInteger 或 some_integer，grpc-gateway 会帮你转成 protobuf 字段。"
+        },
+        "someFloat": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "title": "InnerMessage 是 gRPC 请求体，也是 HTTP JSON 请求体。"
+    },
+    "protoOuterMessage": {
+      "type": "object",
+      "properties": {
+        "importantString": {
+          "type": "string"
+        },
+        "inner": {
+          "$ref": "#/definitions/protoInnerMessage"
+        }
+      },
+      "title": "OuterMessage 是 gRPC 响应体，也是 HTTP JSON 响应体。"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    }
+  }
+}

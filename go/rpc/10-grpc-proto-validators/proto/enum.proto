@@ -1,0 +1,21 @@
+// 枚举校验示例。
+syntax = "proto3";
+
+package proto;
+
+import "validator.proto";
+
+option go_package = "go-grpc-proto-validators/proto;proto";
+
+// SomeMsg 演示如何校验枚举字段。
+message SomeMsg {
+  // is_in_enum 表示 do 必须是 Action 枚举中定义过的值。
+  Action do = 1 [(validator.field) = {is_in_enum: true}];
+}
+
+// Action 定义三个允许的枚举值。
+enum Action {
+  ALLOW = 0;
+  DENY = 1;
+  CHILL = 2;
+}

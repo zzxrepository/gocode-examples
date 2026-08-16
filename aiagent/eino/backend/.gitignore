@@ -1,0 +1,3 @@
+# 本地凭据配置；它会覆盖 config/config.yaml，禁止提交。
+config/local.yaml
+.cache/

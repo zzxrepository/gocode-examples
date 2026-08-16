@@ -1,0 +1,28 @@
+// 服务端流式 RPC 示例的 proto 定义。
+// 服务端流式：客户端发送 1 个请求，服务端返回多条响应。
+syntax = "proto3";
+
+package proto;
+
+// 生成 Go 文件时使用的 import 路径和 package 名。
+option go_package = "go-grpc-server-stream-rpc/proto;proto";
+
+// SimpleRequest 是客户端发送给服务端的单次请求。
+message SimpleRequest {
+  // data 用作服务端生成多条响应时的前缀。
+  string data = 1;
+}
+
+// StreamResponse 是服务端通过流连续发送给客户端的响应。
+message StreamResponse {
+  // protobuf 字段名通常使用 snake_case。
+  // 生成 Go 代码后字段名会变成 StreamValue，getter 是 GetStreamValue()。
+  string stream_value = 1;
+}
+
+// StreamServer 定义服务端流式 RPC 服务。
+service StreamServer {
+  // returns 前加 stream，表示服务端会返回响应流。
+  // 客户端调用后会拿到一个 stream，并通过 Recv() 一条条读取 StreamResponse。
+  rpc ListValue(SimpleRequest) returns (stream StreamResponse) {}
+}

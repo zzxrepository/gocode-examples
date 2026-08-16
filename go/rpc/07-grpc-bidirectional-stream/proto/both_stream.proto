@@ -1,0 +1,26 @@
+// 双向流式 RPC 示例的 proto 定义。
+// 双向流式：客户端和服务端都可以在同一个 RPC 中连续发送消息。
+syntax = "proto3";
+
+package proto;
+
+option go_package = "go-grpc-bidirectional-stream-rpc/proto;proto";
+
+// StreamRequest 表示客户端发给服务端的一条问题。
+message StreamRequest {
+  // question 是客户端的问题内容。
+  string question = 1;
+}
+
+// StreamResponse 表示服务端发给客户端的一条回答。
+message StreamResponse {
+  // answer 是服务端回答内容。
+  string answer = 1;
+}
+
+// Stream 定义双向流式服务。
+service Stream {
+  // 请求和响应两边都加 stream，表示双方都可以连续发送消息。
+  // 在这个例子里我们用“一问一答”的方式演示，但真实场景可以并发收发。
+  rpc Conversations(stream StreamRequest) returns (stream StreamResponse) {}
+}

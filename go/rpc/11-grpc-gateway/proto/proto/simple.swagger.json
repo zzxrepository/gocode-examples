@@ -1,0 +1,106 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "proto/simple.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "Simple"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/example/route": {
+      "post": {
+        "operationId": "Simple_Route",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/protoOuterMessage"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/protoInnerMessage"
+            }
+          }
+        ],
+        "tags": [
+          "Simple"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "protoInnerMessage": {
+      "type": "object",
+      "properties": {
+        "someInteger": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "someFloat": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
+    "protoOuterMessage": {
+      "type": "object",
+      "properties": {
+        "importantString": {
+          "type": "string"
+        },
+        "inner": {
+          "$ref": "#/definitions/protoInnerMessage"
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    }
+  }
+}

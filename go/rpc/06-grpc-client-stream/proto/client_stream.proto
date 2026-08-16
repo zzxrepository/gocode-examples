@@ -1,0 +1,29 @@
+// 客户端流式 RPC 示例的 proto 定义。
+// 客户端流式：客户端发送多条请求，服务端最后返回 1 条响应。
+syntax = "proto3";
+
+package proto;
+
+option go_package = "go-grpc-client-stream-rpc/proto;proto";
+
+// StreamRequest 是客户端通过流不断发送给服务端的消息。
+message StreamRequest {
+  // 每条上传数据都放在 stream_data 中。
+  string stream_data = 1;
+}
+
+// SimpleResponse 是服务端在客户端关闭发送流后返回的最终结果。
+message SimpleResponse {
+  // code 表示业务状态码。
+  int32 code = 1;
+
+  // value 表示业务响应内容。
+  string value = 2;
+}
+
+// StreamClient 定义客户端流式 RPC 服务。
+service StreamClient {
+  // 请求参数前加 stream，表示客户端可以连续 Send 多个 StreamRequest。
+  // returns 没有 stream，表示服务端最后只返回一个 SimpleResponse。
+  rpc RouteList(stream StreamRequest) returns (SimpleResponse) {}
+}

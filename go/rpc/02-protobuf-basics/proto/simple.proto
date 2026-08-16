@@ -1,0 +1,27 @@
+// 指定 protobuf 语法版本。
+// 学习 gRPC 时基本都从 proto3 开始，它语法简单、生成代码也更贴近现代 Go。
+syntax = "proto3";
+
+// proto 文件自己的包名，用来避免不同 proto 文件里的 message/service 重名。
+package proto;
+
+// go_package 控制生成 Go 代码时的 import 路径和 package 名。
+// 本目录的 go.mod 是 module go-grpc-proto-basics，所以 import 路径写 go-grpc-proto-basics/proto。
+option go_package = "go-grpc-proto-basics/proto;proto";
+
+// SimpleRequest 表示一次请求的数据结构。
+// protobuf 的 message 可以理解为“跨语言传输用的结构体”。
+message SimpleRequest {
+  // 字段编号 1 会进入 protobuf 二进制编码，不是默认值。
+  // 字段名 data 会生成 Go 字段 Data 和 getter 方法 GetData()。
+  string data = 1;
+}
+
+// SimpleResponse 表示一次响应的数据结构。
+message SimpleResponse {
+  // code 常用来放业务状态码。
+  int32 code = 1;
+
+  // value 常用来放响应内容。
+  string value = 2;
+}

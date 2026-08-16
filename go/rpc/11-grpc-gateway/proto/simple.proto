@@ -1,0 +1,42 @@
+// grpc-gateway 示例。
+// 它让同一个 gRPC 服务额外暴露 HTTP JSON 接口。
+syntax = "proto3";
+
+package proto;
+
+// google/api/annotations.proto 提供 google.api.http option。
+// 这个 option 用来描述“某个 RPC 对应哪个 HTTP 路径”。
+import "google/api/annotations.proto";
+
+// validator.proto 提供字段校验规则。
+import "validator.proto";
+
+option go_package = "go-grpc-gateway-example/proto;proto";
+
+// InnerMessage 是 gRPC 请求体，也是 HTTP JSON 请求体。
+message InnerMessage {
+  // HTTP JSON 字段可以写 someInteger 或 some_integer，grpc-gateway 会帮你转成 protobuf 字段。
+  int32 some_integer = 1 [(validator.field) = {int_gt: 0, int_lt: 100}];
+  double some_float = 2 [(validator.field) = {float_gte: 0, float_lte: 1}];
+}
+
+// OuterMessage 是 gRPC 响应体，也是 HTTP JSON 响应体。
+message OuterMessage {
+  string important_string = 1 [(validator.field) = {regex: "^[a-z]{2,5}$"}];
+  InnerMessage inner = 2 [(validator.field) = {msg_exists: true}];
+}
+
+// Simple 定义一个同时支持 gRPC 调用和 HTTP 调用的服务。
+service Simple {
+  rpc Route(InnerMessage) returns (OuterMessage) {
+    // google.api.http 是 grpc-gateway 识别的注解。
+    // 它表示：
+    // - HTTP 方法：POST
+    // - HTTP 路径：/v1/example/route
+    // - body: "*"：整个 JSON body 都映射成 InnerMessage。
+    option (google.api.http) = {
+      post: "/v1/example/route"
+      body: "*"
+    };
+  }
+}

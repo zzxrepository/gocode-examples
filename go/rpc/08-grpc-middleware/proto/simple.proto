@@ -1,0 +1,23 @@
+// middleware 示例的 proto 定义仍然是普通一元 RPC。
+// 拦截器属于 gRPC 服务端/客户端配置，不需要写进 proto 文件。
+syntax = "proto3";
+
+package proto;
+
+option go_package = "go-grpc-middleware-example/proto;proto";
+
+// SimpleRequest 是客户端请求。
+message SimpleRequest {
+  string data = 1;
+}
+
+// SimpleResponse 是服务端响应。
+message SimpleResponse {
+  int32 code = 1;
+  string value = 2;
+}
+
+// Simple 定义一个会经过拦截器链的一元 RPC 服务。
+service Simple {
+  rpc Route(SimpleRequest) returns (SimpleResponse) {}
+}

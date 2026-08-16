@@ -1,0 +1,47 @@
+// 指定 Protocol Buffers 的语法版本。
+// gRPC-Go 现在推荐使用 proto3；它比 proto2 更简洁，字段默认都是可选语义。
+syntax = "proto3";
+
+// package 是 proto 文件里的命名空间。
+// 生成 Go 代码后，这个 package 会体现在服务全名里，例如：/proto.Simple/Route。
+package proto;
+
+// go_package 告诉 protoc 生成 Go 代码时应该使用哪个导入路径和包名。
+// 分号前：Go 代码里的 import 路径。
+// 分号后：生成文件里的 package 名称。
+// 本模块的 go.mod 是 module go-grpc-simple-rpc，所以这里用 go-grpc-simple-rpc/proto。
+option go_package = "go-grpc-simple-rpc/proto;proto";
+
+// SimpleRequest 定义客户端发送给服务端的请求消息。
+// 在简单 RPC 中，客户端只发送一次 SimpleRequest，然后等待一次 SimpleResponse。
+message SimpleRequest {
+  // data 是请求里的业务数据。
+  //
+  // 等号右边的 1 是字段编号，不是默认值。
+  // 字段编号会参与 protobuf 的二进制编码，一旦对外发布后就不要随意修改。
+  // 如果后续要加字段，可以继续使用 2、3、4...
+  string data = 1;
+}
+
+// SimpleResponse 定义服务端返回给客户端的响应消息。
+message SimpleResponse {
+  // code 表示业务状态码。
+  // 这里为了教程简单，服务端固定返回 200。
+  int32 code = 1;
+
+  // value 表示响应内容。
+  // 当前服务端会返回 "hello " + 请求里的 data。
+  string value = 2;
+}
+
+// Simple 定义一个 gRPC 服务。
+// 一个 service 可以包含多个 rpc 方法；这里先只定义最基础的 Route。
+service Simple {
+  // Route 是一个简单 RPC（Simple RPC）方法。
+  //
+  // 调用模式：
+  // 1. 客户端发送一个 SimpleRequest。
+  // 2. 服务端处理后返回一个 SimpleResponse。
+  // 3. 调用结束，没有流式传输。
+  rpc Route(SimpleRequest) returns (SimpleResponse) {}
+}
