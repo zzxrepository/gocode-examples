@@ -1,0 +1,20 @@
+package repository
+
+import (
+	"context"
+
+	"github.com/redis/go-redis/v9"
+)
+
+func NewRedis(addr, password string, db int) (*redis.Client, error) {
+	client := redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: password,
+		DB:       db,
+	})
+	if err := client.Ping(context.Background()).Err(); err != nil {
+		client.Close()
+		return nil, err
+	}
+	return client, nil
+}

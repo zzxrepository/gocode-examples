@@ -1,0 +1,27 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: blog-demo-v1-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: blog_demo
+      MYSQL_USER: blog
+      MYSQL_PASSWORD: blog123
+      TZ: Asia/Shanghai
+    ports:
+      - "3307:3306"
+    volumes:
+      - blog_demo_v1_mysql:/var/lib/mysql
+      - ../api/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+  redis:
+    image: redis:7.2
+    container_name: blog-demo-v1-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - blog_demo_v1_redis:/data
+
+volumes:
+  blog_demo_v1_mysql:
+  blog_demo_v1_redis:

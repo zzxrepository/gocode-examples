@@ -1,0 +1,5 @@
+server:
+  http_addr: ":8082"
+
+mysql:
+  dsn: "blog:blog123@tcp(127.0.0.1:3306)/blog_demo?parseTime=true&loc=Local"
