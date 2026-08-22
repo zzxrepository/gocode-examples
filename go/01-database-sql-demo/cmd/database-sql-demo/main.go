@@ -1,0 +1,64 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"time"
+
+	"database-sql-demo/internal/store"
+)
+
+func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	db, err := store.OpenMySQL(ctx, mysqlConfig())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close() // 进程退出时关闭整个连接池，而不是每次查询后关闭。
+
+	product, err := store.CreateProduct(ctx, db, store.CreateProductInput{
+		SKU:        fmt.Sprintf("keyboard-sql-%d", time.Now().UnixNano()),
+		Name:       "database/sql 机械键盘",
+		PriceCents: 39900,
+		Stock:      10,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("创建商品: id=%d stock=%d", product.ID, product.Stock)
+
+	orderID, err := store.PlaceOrder(ctx, db, store.PlaceOrderInput{
+		CustomerID: 10001,
+		ProductID:  product.ID,
+		Quantity:   2,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	updated, err := store.GetProduct(ctx, db, product.ID)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("下单成功: order_id=%d; 下单后库存=%d", orderID, updated.Stock)
+}
+
+func mysqlConfig() store.MySQLConfig {
+	return store.MySQLConfig{
+		User:     getenv("MYSQL_USER", "root"),
+		Password: getenv("MYSQL_PASSWORD", "rootpass"),
+		Address:  getenv("MYSQL_ADDRESS", "127.0.0.1:3307"),
+		Database: getenv("MYSQL_DATABASE", "go_store"),
+	}
+}
+
+func getenv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
