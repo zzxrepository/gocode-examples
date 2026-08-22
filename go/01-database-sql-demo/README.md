@@ -3,7 +3,7 @@
 这个项目使用“下单扣库存”演示 Go 访问 MySQL 的完整主线：
 
 ~~~text
-创建商品 -> 查询商品 -> 锁定库存 -> 扣库存 -> 创建订单 -> 写入订单项
+创建商品 -> 查询与更新 -> 锁定库存 -> 扣库存 -> 创建订单 -> 写入订单项 -> 删除临时商品
 ~~~
 
 它提供两个可独立运行的入口：
@@ -65,7 +65,7 @@ make docker-up
 cmd/database-sql-demo/main.go  标准库完整下单流程
 cmd/sqlx-demo/main.go          sqlx 完整下单流程
 internal/store/mysql.go        驱动配置与 database/sql 连接池
-internal/store/product.go      标准库 CRUD 和 Rows 资源释放
+internal/store/product.go      标准库 CRUD、Rows 资源释放和结果判断
 internal/store/order.go        标准库事务、FOR UPDATE 和防超卖条件
 internal/store/sqlx.go         sqlx 映射、命名参数、IN 查询和事务版本
 scripts/schema.sql             MySQL 表结构

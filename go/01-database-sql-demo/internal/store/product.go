@@ -113,3 +113,43 @@ func ListProducts(ctx context.Context, db *sql.DB) ([]Product, error) {
 	}
 	return products, nil
 }
+
+// UpdateProductName 展示 UPDATE、ExecContext 和 RowsAffected 的配合。
+// 返回值表示本次是否实际修改了数据。MySQL 默认将“新旧值相同”也报告为 0 行，
+// 因此 false 不能单独用来判断商品一定不存在。
+func UpdateProductName(ctx context.Context, db *sql.DB, id int64, name string) (bool, error) {
+	if id <= 0 || name == "" {
+		return false, ErrInvalidProduct
+	}
+
+	result, err := db.ExecContext(ctx, `
+		UPDATE products
+		SET name = ?
+		WHERE id = ?`, name, id)
+	if err != nil {
+		return false, fmt.Errorf("update product %d: %w", id, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("read product update result: %w", err)
+	}
+	return affected > 0, nil
+}
+
+// DeleteProduct 展示 DELETE。它只删除没有被订单项引用的商品；
+// 外键约束会阻止误删已有订单历史的商品。
+func DeleteProduct(ctx context.Context, db *sql.DB, id int64) (bool, error) {
+	if id <= 0 {
+		return false, ErrInvalidProduct
+	}
+
+	result, err := db.ExecContext(ctx, `DELETE FROM products WHERE id = ?`, id)
+	if err != nil {
+		return false, fmt.Errorf("delete product %d: %w", id, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("read product delete result: %w", err)
+	}
+	return affected == 1, nil
+}

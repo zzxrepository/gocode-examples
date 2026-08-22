@@ -68,6 +68,46 @@ func ListProductsSQLX(ctx context.Context, db *sqlx.DB) ([]Product, error) {
 	return products, nil
 }
 
+// UpdateProductNameSQLX 与标准库版本语义相同，但名称和 ID 改由命名参数绑定。
+func UpdateProductNameSQLX(ctx context.Context, db *sqlx.DB, id int64, name string) (bool, error) {
+	if id <= 0 || name == "" {
+		return false, ErrInvalidProduct
+	}
+
+	result, err := db.NamedExecContext(ctx, `
+		UPDATE products
+		SET name = :name
+		WHERE id = :id`, map[string]any{
+		"id":   id,
+		"name": name,
+	})
+	if err != nil {
+		return false, fmt.Errorf("update product %d: %w", id, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("read product update result: %w", err)
+	}
+	return affected > 0, nil
+}
+
+// DeleteProductSQLX 展示 sqlx 仍可直接执行普通 SQL；它不会替应用生成 SQL。
+func DeleteProductSQLX(ctx context.Context, db *sqlx.DB, id int64) (bool, error) {
+	if id <= 0 {
+		return false, ErrInvalidProduct
+	}
+
+	result, err := db.ExecContext(ctx, `DELETE FROM products WHERE id = ?`, id)
+	if err != nil {
+		return false, fmt.Errorf("delete product %d: %w", id, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("read product delete result: %w", err)
+	}
+	return affected == 1, nil
+}
+
 func GetProductsByIDsSQLX(ctx context.Context, db *sqlx.DB, ids []int64) ([]Product, error) {
 	if len(ids) == 0 {
 		return []Product{}, nil // 防止拼出 MySQL 不接受的 IN ()。

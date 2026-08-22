@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"testing"
 )
@@ -31,5 +32,24 @@ func TestValidateOrderInput(t *testing.T) {
 	}
 	if err := validateOrderInput(PlaceOrderInput{CustomerID: 1, ProductID: 2, Quantity: 0}); !errors.Is(err, ErrInvalidOrder) {
 		t.Fatalf("zero quantity error = %v, want ErrInvalidOrder", err)
+	}
+}
+
+// 更新和删除在访问数据库前应先拒绝明显无效的参数，
+// 因此这组测试不需要启动 MySQL，也不会使用传入的 nil DB。
+func TestProductMutationInput(t *testing.T) {
+	ctx := context.Background()
+
+	if _, err := UpdateProductName(ctx, nil, 0, "keyboard"); !errors.Is(err, ErrInvalidProduct) {
+		t.Fatalf("invalid update error = %v, want ErrInvalidProduct", err)
+	}
+	if _, err := UpdateProductNameSQLX(ctx, nil, 1, ""); !errors.Is(err, ErrInvalidProduct) {
+		t.Fatalf("empty-name update error = %v, want ErrInvalidProduct", err)
+	}
+	if _, err := DeleteProduct(ctx, nil, 0); !errors.Is(err, ErrInvalidProduct) {
+		t.Fatalf("invalid delete error = %v, want ErrInvalidProduct", err)
+	}
+	if _, err := DeleteProductSQLX(ctx, nil, -1); !errors.Is(err, ErrInvalidProduct) {
+		t.Fatalf("invalid sqlx delete error = %v, want ErrInvalidProduct", err)
 	}
 }
