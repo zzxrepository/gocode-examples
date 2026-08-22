@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/mmzhang/aiagent-eino-backend/internal/config"
-	"github.com/mmzhang/aiagent-eino-backend/internal/httpapi"
-	"github.com/mmzhang/aiagent-eino-backend/internal/httpapi/handler"
+	"github.com/mmzhang/aiagent-eino-backend/internal/handler"
 	"github.com/mmzhang/aiagent-eino-backend/internal/provider"
+	"github.com/mmzhang/aiagent-eino-backend/internal/routes"
 	"github.com/mmzhang/aiagent-eino-backend/internal/service"
 )
 
@@ -23,7 +23,7 @@ func main() {
 		log.Fatal(err)
 	}
 	chatService := service.NewChatService(registry, cfg.Models.Default)
-	router := httpapi.NewRouter(cfg.Server, handler.NewChatHandler(chatService))
+	router := routes.NewRouter(cfg.Server, handler.NewChatHandler(chatService))
 
 	server := &http.Server{
 		Addr:              cfg.Server.Address,
