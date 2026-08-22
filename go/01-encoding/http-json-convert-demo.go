@@ -16,15 +16,8 @@ type CreateUserRequest struct {
 	Age  int    `json:"age"`
 }
 
-// createUser 接收 POST /users 请求。
+// createUser 只会由路由器在收到 POST /users 时调用。
 func createUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{
-			"error": "只支持 POST 请求",
-		})
-		return
-	}
-
 	// HTTP 中的 JSON 不再是固定的 []byte，而是位于 r.Body 中的请求体。
 	// Decode 会读取 r.Body，并把 JSON 数据写入 req，因此仍然要传 &req。
 	var req CreateUserRequest
@@ -59,7 +52,10 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/users", createUser)
+
+	// Go 1.22+ 的 ServeMux 支持“HTTP 方法 + 路径”模式。
+	// 因此只有 POST /users 会进入 createUser；错误方法会由路由器自动返回 405。
+	mux.HandleFunc("POST /users", createUser)
 
 	log.Println("HTTP 服务已启动：http://127.0.0.1:8080")
 	log.Println("请使用 POST /users，并发送 JSON：{\"name\":\"张三\",\"age\":18}")
