@@ -11,7 +11,7 @@ func SampleEvents() ([]OrderEvent, error) {
 	if _, err := rand.Read(runID[:]); err != nil {
 		return nil, err
 	}
-	events := []OrderEvent{
+	payloads := []OrderPayload{
 		{OrderID: "order-1001", Status: "created", AmountCents: 1200},
 		{OrderID: "order-1002", Status: "created", AmountCents: 2300},
 		{OrderID: "order-1003", Status: "created", AmountCents: 3500},
@@ -19,9 +19,10 @@ func SampleEvents() ([]OrderEvent, error) {
 		{OrderID: "order-1002", Status: "paid", AmountCents: 2300},
 		{OrderID: "order-1003", Status: "cancelled", AmountCents: 3500},
 	}
-	for i := range events {
-		events[i].Version = 1
-		events[i].EventID = fmt.Sprintf("%x-%s-%s", runID, events[i].OrderID, events[i].Status)
+	events := make([]OrderEvent, 0, len(payloads))
+	for _, payload := range payloads {
+		id := fmt.Sprintf("%x-%s-%s", runID, payload.OrderID, payload.Status)
+		events = append(events, NewOrderEvent(id, payload))
 	}
 	return events, nil
 }

@@ -104,9 +104,21 @@ func TestHTTPRoutesToKafka(t *testing.T) {
 	if err := asyncPublisher.Close(); err != nil {
 		t.Fatal(err)
 	}
+	if err := asyncPublisher.Close(); err != nil {
+		t.Fatal("重复关闭应返回同一结果", err)
+	}
+	if err := asyncPublisher.Publish(context.Background(), messaging.Record{}); err == nil {
+		t.Fatal("关闭后不能继续发布")
+	}
 	asyncPublisher = nil
 	if err := callbackPublisher.Close(); err != nil {
 		t.Fatal(err)
+	}
+	if err := callbackPublisher.Close(); err != nil {
+		t.Fatal("重复关闭应返回同一结果", err)
+	}
+	if err := callbackPublisher.Publish(context.Background(), messaging.Record{}); err == nil {
+		t.Fatal("关闭后不能继续发布")
 	}
 	callbackPublisher = nil
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -118,14 +130,14 @@ func TestHTTPRoutesToKafka(t *testing.T) {
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
 			return err
 		}
-		if string(msg.Key) != event.OrderID || event.AmountCents != 1200 {
+		if string(msg.Key) != event.Payload.OrderID || event.Payload.AmountCents != 1200 {
 			return errors.New("消息内容错误")
 		}
-		if previous, ok := partitions[event.OrderID]; ok && previous != msg.Partition {
+		if previous, ok := partitions[event.Payload.OrderID]; ok && previous != msg.Partition {
 			return errors.New("同订单进入不同分区")
 		}
-		partitions[event.OrderID] = msg.Partition
-		statuses[event.OrderID] = append(statuses[event.OrderID], event.Status)
+		partitions[event.Payload.OrderID] = msg.Partition
+		statuses[event.Payload.OrderID] = append(statuses[event.Payload.OrderID], event.Payload.Status)
 		return nil
 	})
 	if err != nil {

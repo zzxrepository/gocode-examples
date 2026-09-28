@@ -107,13 +107,13 @@ func OrderHandler(group, clientID string, delay time.Duration, failStatus string
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
 			return fmt.Errorf("JSON 解码: %w", err)
 		}
-		if event.Version != 1 || event.EventID == "" || event.OrderID == "" || string(msg.Key) != event.OrderID || event.AmountCents <= 0 {
+		if event.Type != "order.status_changed" || event.Source == "" || event.OccurredAt.IsZero() || event.Version != 1 || event.ID == "" || event.Payload.OrderID == "" || string(msg.Key) != event.Payload.OrderID || event.Payload.AmountCents <= 0 {
 			return fmt.Errorf("不支持的订单事件: %+v", event)
 		}
-		switch event.Status {
+		switch event.Payload.Status {
 		case "created", "paid", "cancelled":
 		default:
-			return fmt.Errorf("未知状态 %q", event.Status)
+			return fmt.Errorf("未知状态 %q", event.Payload.Status)
 		}
 		if delay > 0 {
 			timer := time.NewTimer(delay)
@@ -124,12 +124,12 @@ func OrderHandler(group, clientID string, delay time.Duration, failStatus string
 			case <-timer.C:
 			}
 		}
-		if event.Status == failStatus {
+		if event.Payload.Status == failStatus {
 			return fmt.Errorf("模拟 %s 处理失败", failStatus)
 		}
 		// 业务动作仅打印；真实数据库更新、去重必须在返回 nil 之前完成。
 		fmt.Printf("handled group=%s client=%s partition=%d offset=%d event=%s order=%s status=%s amount=%d\n",
-			group, clientID, msg.Partition, msg.Offset, event.EventID, event.OrderID, event.Status, event.AmountCents)
+			group, clientID, msg.Partition, msg.Offset, event.ID, event.Payload.OrderID, event.Payload.Status, event.Payload.AmountCents)
 		return nil
 	}
 }

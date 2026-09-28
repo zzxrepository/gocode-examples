@@ -37,7 +37,7 @@ func orderMessages(topic string) ([]*sarama.ProducerMessage, error) {
 		if err != nil {
 			return nil, err
 		}
-		msg := messaging.NewMessage(topic, messaging.Record{Key: event.OrderID, Value: value, EventID: event.EventID})
+		msg := messaging.NewMessage(topic, messaging.Record{Key: event.Payload.OrderID, Value: value, EventID: event.ID})
 		msg.Metadata = event // 测试用原始事件构造预期值。
 		messages = append(messages, msg)
 	}

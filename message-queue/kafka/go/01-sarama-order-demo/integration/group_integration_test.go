@@ -124,7 +124,7 @@ func TestGroupResumeAndIndependentGroups(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := collectGroup(t, brokers, topic, group, kafkaConfig(), 1)
-	if len(got) != 1 || got[0].EventID != more[0].Metadata.(OrderEvent).EventID {
+	if len(got) != 1 || got[0].ID != more[0].Metadata.(OrderEvent).ID {
 		t.Fatalf("重启应只收到新增消息，实际 %+v", got)
 	}
 	if got := collectGroup(t, brokers, topic, other, kafkaConfig(), 7); len(got) != 7 {
@@ -164,7 +164,7 @@ func TestGroupFailureDoesNotSkipRecord(t *testing.T) {
 		t.Fatalf("失败消息被跳过或成功消息未提交: %+v", block)
 	}
 	got := collectGroup(t, brokers, topic, group, kafkaConfig(), 3)
-	if len(got) != 3 || got[0].Status != "paid" {
+	if len(got) != 3 || got[0].Payload.Status != "paid" {
 		t.Fatalf("应从失败消息恢复，实际 %+v", got)
 	}
 }
@@ -202,15 +202,15 @@ func TestTransactionVisibility(t *testing.T) {
 		}
 		ids := map[string]bool{}
 		for _, event := range got {
-			ids[event.EventID] = true
+			ids[event.ID] = true
 		}
 		for _, msg := range committed {
-			if !ids[msg.Metadata.(OrderEvent).EventID] {
+			if !ids[msg.Metadata.(OrderEvent).ID] {
 				t.Fatal("已提交事件缺失")
 			}
 		}
 		for _, msg := range aborted {
-			if ids[msg.Metadata.(OrderEvent).EventID] == committedOnly {
+			if ids[msg.Metadata.(OrderEvent).ID] == committedOnly {
 				t.Fatal("中止事件的隔离可见性错误")
 			}
 		}

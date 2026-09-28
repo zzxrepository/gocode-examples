@@ -3,42 +3,40 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/IBM/sarama"
-	"gopkg.in/yaml.v3"
+	"github.com/spf13/viper"
 )
 
 type Config struct {
 	HTTP struct {
-		Address string `yaml:"address"`
-	} `yaml:"http"`
+		Address string `mapstructure:"address"`
+	} `mapstructure:"http"`
 	Kafka struct {
-		BootstrapServers []string `yaml:"bootstrap_servers"`
-		Topic            string   `yaml:"topic"`
-		ClientID         string   `yaml:"client_id"`
+		BootstrapServers []string `mapstructure:"bootstrap_servers"`
+		Topic            string   `mapstructure:"topic"`
+		ClientID         string   `mapstructure:"client_id"`
 		Producer         struct {
-			RequiredAcks string `yaml:"required_acks"`
-			RetryMax     int    `yaml:"retry_max"`
-			Idempotent   bool   `yaml:"idempotent"`
-			Compression  string `yaml:"compression"`
-		} `yaml:"producer"`
+			RequiredAcks string `mapstructure:"required_acks"`
+			RetryMax     int    `mapstructure:"retry_max"`
+			Idempotent   bool   `mapstructure:"idempotent"`
+			Compression  string `mapstructure:"compression"`
+		} `mapstructure:"producer"`
 		Consumer struct {
-			GroupID       string `yaml:"group_id"`
-			InitialOffset string `yaml:"initial_offset"`
-			AutoCommit    bool   `yaml:"auto_commit"`
-		} `yaml:"consumer"`
-	} `yaml:"kafka"`
+			GroupID       string `mapstructure:"group_id"`
+			InitialOffset string `mapstructure:"initial_offset"`
+			AutoCommit    bool   `mapstructure:"auto_commit"`
+		} `mapstructure:"consumer"`
+	} `mapstructure:"kafka"`
 }
 
 func Default() Config {
 	var cfg Config
 	cfg.HTTP.Address = "127.0.0.1:18080"
 	cfg.Kafka.BootstrapServers = []string{"127.0.0.1:9092"}
-	cfg.Kafka.Topic = "order-events"
+	cfg.Kafka.Topic = "order-events-v1"
 	cfg.Kafka.ClientID = "order-demo"
 	cfg.Kafka.Producer.RequiredAcks = "all"
 	cfg.Kafka.Producer.RetryMax = 3
@@ -51,19 +49,34 @@ func Default() Config {
 
 func Load(path string) (Config, error) {
 	cfg := Default()
-	f, err := os.Open(path)
-	if err != nil {
-		return cfg, err
+	v := viper.New()
+	v.SetConfigFile(path)
+	v.SetConfigType("yaml")
+	v.SetEnvPrefix("ORDER_DEMO")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+	// 注册键和默认值，使环境变量在 UnmarshalExact 时也参与解码。
+	defaults := map[string]any{
+		"http.address":                  cfg.HTTP.Address,
+		"kafka.bootstrap_servers":       cfg.Kafka.BootstrapServers,
+		"kafka.topic":                   cfg.Kafka.Topic,
+		"kafka.client_id":               cfg.Kafka.ClientID,
+		"kafka.producer.required_acks":  cfg.Kafka.Producer.RequiredAcks,
+		"kafka.producer.retry_max":      cfg.Kafka.Producer.RetryMax,
+		"kafka.producer.idempotent":     cfg.Kafka.Producer.Idempotent,
+		"kafka.producer.compression":    cfg.Kafka.Producer.Compression,
+		"kafka.consumer.group_id":       cfg.Kafka.Consumer.GroupID,
+		"kafka.consumer.initial_offset": cfg.Kafka.Consumer.InitialOffset,
+		"kafka.consumer.auto_commit":    cfg.Kafka.Consumer.AutoCommit,
 	}
-	defer f.Close()
-	decoder := yaml.NewDecoder(f)
-	decoder.KnownFields(true) // 拼错配置名应直接报错，避免悄悄使用默认值。
-	if err := decoder.Decode(&cfg); err != nil {
-		return cfg, err
+	for key, value := range defaults {
+		v.SetDefault(key, value)
 	}
-	var extra any
-	if err := decoder.Decode(&extra); err != io.EOF {
-		return cfg, errors.New("配置文件只能包含一个 YAML 文档")
+	if err := v.ReadInConfig(); err != nil {
+		return cfg, fmt.Errorf("读取配置: %w", err)
+	}
+	if err := v.UnmarshalExact(&cfg); err != nil {
+		return cfg, fmt.Errorf("解析配置: %w", err)
 	}
 	if len(cfg.Kafka.BootstrapServers) == 0 || strings.TrimSpace(cfg.Kafka.Topic) == "" || strings.TrimSpace(cfg.Kafka.Consumer.GroupID) == "" || cfg.HTTP.Address == "" {
 		return cfg, errors.New("bootstrap_servers、topic、group_id 和 http.address 不能为空")
@@ -74,7 +87,7 @@ func Load(path string) (Config, error) {
 			return cfg, errors.New("bootstrap_servers 包含空地址")
 		}
 	}
-	_, err = cfg.Sarama()
+	_, err := cfg.Sarama()
 	return cfg, err
 }
 

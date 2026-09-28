@@ -46,7 +46,7 @@ func (c *TransactionController) sendBatch(w http.ResponseWriter, r *http.Request
 			respondError(w, err)
 			return
 		}
-		messages = append(messages, messaging.NewMessage(c.topic, messaging.Record{Key: event.OrderID, Value: value, EventID: event.EventID}))
+		messages = append(messages, messaging.NewMessage(c.topic, messaging.Record{Key: event.Payload.OrderID, Value: value, EventID: event.ID}))
 	}
 	if err := messaging.SendTransaction(r.Context(), c.brokers, c.cfg, messages, abort); err != nil {
 		respondError(w, err)

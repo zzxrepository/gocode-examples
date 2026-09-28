@@ -73,15 +73,14 @@ func (s *OrderService) Get(id string) (model.Order, error) {
 func (s *OrderService) publishAndStore(ctx context.Context, order model.Order) (model.Order, error) {
 	// 实验期间持锁发布，保证本进程的状态检查与发送顺序；牺牲不同订单的并行能力。
 	// 这不是数据库与 Kafka 的原子事务。重启丢失内存状态；线上应采用持久存储和 Outbox。
-	event := model.OrderEvent{
-		EventID: fmt.Sprintf("%s:%s", order.ID, order.Status), Version: 1,
+	event := model.NewOrderEvent(fmt.Sprintf("%s:%s", order.ID, order.Status), model.OrderPayload{
 		OrderID: order.ID, Status: order.Status, AmountCents: order.AmountCents,
-	}
+	})
 	value, err := json.Marshal(event)
 	if err != nil {
 		return model.Order{}, err
 	}
-	if err := s.publisher.Publish(ctx, messaging.Record{Key: order.ID, Value: value, EventID: event.EventID}); err != nil {
+	if err := s.publisher.Publish(ctx, messaging.Record{Key: order.ID, Value: value, EventID: event.ID}); err != nil {
 		return model.Order{}, err
 	}
 	s.orders[order.ID] = order
