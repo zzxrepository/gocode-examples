@@ -1,0 +1,18 @@
+# 引导地址对应 Java 客户端的 bootstrap.servers。
+# 这里仅用于本机无认证实验；线上认证信息应从受控的密钥配置注入。
+http:
+  address: "127.0.0.1:18080"
+kafka:
+  bootstrap_servers:
+    - "127.0.0.1:9092"
+  topic: "order-events"
+  client_id: "order-demo"
+  producer:
+    required_acks: "all"
+    retry_max: 3
+    idempotent: true
+    compression: "none"
+  consumer:
+    group_id: "order-progress"
+    initial_offset: "oldest"
+    auto_commit: false

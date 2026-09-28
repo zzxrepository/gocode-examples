@@ -2,13 +2,14 @@
 
 本仓库保存 [gocode](https://github.com/zzxrepository/gocode) 教程中需要独立运行、测试或持续演进的示例项目。文档负责解释原理与学习路径；本仓库负责保存完整源码、配置样例和运行说明。
 
-目录按语言划分，语言目录下的每个一级目录都是一个独立示例项目。不会为复刻文档站点的导航结构而增加额外目录层级。
+通用示例按语言划分；消息队列示例放在 `message-queue/<中间件>/<语言>/<项目>` 下。每个示例项目都有独立的依赖和运行入口。
 
 | 项目 | 对应主题 | 运行入口 |
 | --- | --- | --- |
 | `go/01-http-demo` | `net/http` 服务端、`Handler`、`ServeMux` 与分层博客 API | `go run ./cmd/api` |
 | `go/01-gin-demo` | Gin 路由、中间件、Context 与分层博客 API | `go run ./cmd/api` |
 | `go/01-kratos-demo` | Kratos 微服务、网关、用户服务与文章服务 | 参见项目 README |
+| [`message-queue/kafka/go/01-sarama-order-demo`](message-queue/kafka/go/01-sarama-order-demo/) | Sarama 订单 HTTP 实验：同步、异步、回调、消费者组与事务 | 参见项目 README |
 
 ## 约定
 
