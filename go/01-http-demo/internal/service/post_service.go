@@ -7,9 +7,13 @@ import (
 	"http-demo/internal/repository"
 )
 
-type PostService struct{ posts *repository.PostRepository }
+type PostService struct {
+	posts *repository.PostRepository
+}
 
-func NewPostService(posts *repository.PostRepository) *PostService { return &PostService{posts: posts} }
+func NewPostService(posts *repository.PostRepository) *PostService {
+	return &PostService{posts: posts}
+}
 
 func (s *PostService) Create(ctx context.Context, userID int64, req model.CreatePostRequest) (*model.Post, error) {
 	return s.posts.Create(ctx, &model.Post{Title: req.Title, Content: req.Content, UserID: userID})

@@ -11,7 +11,9 @@ import (
 	"http-demo/internal/service"
 )
 
-type Server struct{ httpServer *http.Server }
+type Server struct {
+	httpServer *http.Server
+}
 
 func New(cfg config.Config, authSvc *service.AuthService, postSvc *service.PostService) *Server {
 	authHandler := handler.NewAuthHandler(authSvc)
@@ -45,4 +47,6 @@ func New(cfg config.Config, authSvc *service.AuthService, postSvc *service.PostS
 	}}
 }
 
-func (s *Server) Run() error { return s.httpServer.ListenAndServe() }
+func (s *Server) Run() error {
+	return s.httpServer.ListenAndServe()
+}

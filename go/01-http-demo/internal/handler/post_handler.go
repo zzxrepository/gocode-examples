@@ -11,7 +11,9 @@ import (
 	"http-demo/internal/service"
 )
 
-type PostHandler struct{ posts *service.PostService }
+type PostHandler struct {
+	posts *service.PostService
+}
 
 func NewPostHandler(posts *service.PostService) *PostHandler { return &PostHandler{posts: posts} }
 

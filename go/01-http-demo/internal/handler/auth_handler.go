@@ -8,9 +8,13 @@ import (
 	"http-demo/internal/service"
 )
 
-type AuthHandler struct{ auth *service.AuthService }
+type AuthHandler struct {
+	auth *service.AuthService
+}
 
-func NewAuthHandler(auth *service.AuthService) *AuthHandler { return &AuthHandler{auth: auth} }
+func NewAuthHandler(auth *service.AuthService) *AuthHandler {
+	return &AuthHandler{auth: auth}
+}
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req model.RegisterRequest
