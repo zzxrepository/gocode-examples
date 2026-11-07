@@ -6,7 +6,7 @@
 
 | 项目 | 对应主题 | 运行入口 |
 | --- | --- | --- |
-| [`go/01-closure-demo`](go/01-closure-demo/) | 闭包：用计数器理解捕获变量与保留状态 | `go run .` |
+| [`go/01-closure-demo`](go/01-closure-demo/) | 闭包：计数器、捕获变量、保存函数与回调 | `go run .`；`go run ./saved-function` |
 | `go/01-http-demo` | `net/http` 服务端、`Handler`、`ServeMux` 与分层博客 API | `go run ./cmd/api` |
 | `go/01-gin-demo` | Gin 路由、中间件、Context 与分层博客 API | `go run ./cmd/api` |
 | `go/01-kratos-demo` | Kratos 微服务、网关、用户服务与文章服务 | 参见项目 README |
