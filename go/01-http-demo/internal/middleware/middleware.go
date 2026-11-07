@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"gin-demo-v1/internal/httpapi"
-	"gin-demo-v1/internal/service"
+	"http-demo/internal/httpapi"
+	"http-demo/internal/service"
 )
 
 type Middleware func(http.Handler) http.Handler

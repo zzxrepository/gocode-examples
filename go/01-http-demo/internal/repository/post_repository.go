@@ -4,12 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"gin-demo-v1/internal/model"
+	"http-demo/internal/model"
 )
 
-type PostRepository struct{ db *sql.DB }
+type PostRepository struct{ 
+	db *sql.DB 
+}
 
-func NewPostRepository(db *sql.DB) *PostRepository { return &PostRepository{db: db} }
+func NewPostRepository(db *sql.DB) *PostRepository { 
+	return &PostRepository{db: db} 
+}
 
 func (r *PostRepository) Create(ctx context.Context, post *model.Post) (*model.Post, error) {
 	result, err := r.db.ExecContext(ctx, "INSERT INTO posts (title, content, user_id) VALUES (?, ?, ?)", post.Title, post.Content, post.UserID)

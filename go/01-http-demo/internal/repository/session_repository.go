@@ -8,9 +8,13 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type SessionRepository struct{ rdb *redis.Client }
+type SessionRepository struct{ 
+	rdb *redis.Client 
+}
 
-func NewSessionRepository(rdb *redis.Client) *SessionRepository { return &SessionRepository{rdb: rdb} }
+func NewSessionRepository(rdb *redis.Client) *SessionRepository { 
+	return &SessionRepository{rdb: rdb} 
+}
 
 func (r *SessionRepository) SaveToken(ctx context.Context, userID int64, token string, ttl time.Duration) error {
 	return r.rdb.Set(ctx, sessionKey(userID), token, ttl).Err()

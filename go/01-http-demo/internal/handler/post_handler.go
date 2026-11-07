@@ -1,27 +1,27 @@
-package controller
+package handler
 
 import (
 	"database/sql"
 	"net/http"
 	"strconv"
 
-	"gin-demo-v1/internal/httpapi"
-	"gin-demo-v1/internal/middleware"
-	"gin-demo-v1/internal/model"
-	"gin-demo-v1/internal/service"
+	"http-demo/internal/httpapi"
+	"http-demo/internal/middleware"
+	"http-demo/internal/model"
+	"http-demo/internal/service"
 )
 
-type PostController struct{ posts *service.PostService }
+type PostHandler struct{ posts *service.PostService }
 
-func NewPostController(posts *service.PostService) *PostController { return &PostController{posts: posts} }
+func NewPostHandler(posts *service.PostService) *PostHandler { return &PostHandler{posts: posts} }
 
-func (ctl *PostController) Create(w http.ResponseWriter, r *http.Request) {
+func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req model.CreatePostRequest
 	if err := httpapi.DecodeJSON(w, r, &req); err != nil {
 		httpapi.WriteResponse(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
-	post, err := ctl.posts.Create(r.Context(), middleware.CurrentUserID(r.Context()), req)
+	post, err := h.posts.Create(r.Context(), middleware.CurrentUserID(r.Context()), req)
 	if err != nil {
 		httpapi.WriteResponse(w, http.StatusInternalServerError, err.Error(), nil)
 		return
@@ -29,8 +29,8 @@ func (ctl *PostController) Create(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteResponse(w, http.StatusCreated, "created", post)
 }
 
-func (ctl *PostController) List(w http.ResponseWriter, r *http.Request) {
-	posts, err := ctl.posts.List(r.Context())
+func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
+	posts, err := h.posts.List(r.Context())
 	if err != nil {
 		httpapi.WriteResponse(w, http.StatusInternalServerError, err.Error(), nil)
 		return
@@ -38,12 +38,12 @@ func (ctl *PostController) List(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteResponse(w, http.StatusOK, "ok", posts)
 }
 
-func (ctl *PostController) Get(w http.ResponseWriter, r *http.Request) {
+func (h *PostHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
 	if !ok {
 		return
 	}
-	post, err := ctl.posts.FindByID(r.Context(), id)
+	post, err := h.posts.FindByID(r.Context(), id)
 	if err != nil {
 		writeSQLError(w, err)
 		return
@@ -51,7 +51,7 @@ func (ctl *PostController) Get(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteResponse(w, http.StatusOK, "ok", post)
 }
 
-func (ctl *PostController) Update(w http.ResponseWriter, r *http.Request) {
+func (h *PostHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
 	if !ok {
 		return
@@ -61,7 +61,7 @@ func (ctl *PostController) Update(w http.ResponseWriter, r *http.Request) {
 		httpapi.WriteResponse(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
-	post, err := ctl.posts.Update(r.Context(), middleware.CurrentUserID(r.Context()), id, req)
+	post, err := h.posts.Update(r.Context(), middleware.CurrentUserID(r.Context()), id, req)
 	if err != nil {
 		writeSQLError(w, err)
 		return
@@ -69,12 +69,12 @@ func (ctl *PostController) Update(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteResponse(w, http.StatusOK, "ok", post)
 }
 
-func (ctl *PostController) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *PostHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
 	if !ok {
 		return
 	}
-	if err := ctl.posts.Delete(r.Context(), middleware.CurrentUserID(r.Context()), id); err != nil {
+	if err := h.posts.Delete(r.Context(), middleware.CurrentUserID(r.Context()), id); err != nil {
 		writeSQLError(w, err)
 		return
 	}

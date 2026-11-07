@@ -1,4 +1,4 @@
-package repository
+package mysql
 
 import (
 	"database/sql"
@@ -7,7 +7,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func NewMySQL(dsn string) (*sql.DB, error) {
+func NewClient(dsn string) (*sql.DB, error) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, err

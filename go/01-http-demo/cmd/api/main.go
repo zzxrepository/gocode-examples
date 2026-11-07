@@ -3,20 +3,22 @@ package main
 import (
 	"log"
 
-	"gin-demo-v1/internal/config"
-	"gin-demo-v1/internal/repository"
-	"gin-demo-v1/internal/server"
-	"gin-demo-v1/internal/service"
+	"http-demo/internal/config"
+	"http-demo/internal/infra/mysql"
+	"http-demo/internal/infra/redis"
+	"http-demo/internal/repository"
+	"http-demo/internal/server"
+	"http-demo/internal/service"
 )
 
 func main() {
 	cfg := config.Load()
-	db, err := repository.NewMySQL(cfg.MySQLDSN)
+	db, err := mysql.NewClient(cfg.MySQLDSN)
 	if err != nil {
 		log.Fatalf("connect mysql: %v", err)
 	}
 	defer db.Close()
-	rdb, err := repository.NewRedis(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
+	rdb, err := redis.NewClient(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
 	if err != nil {
 		log.Fatalf("connect redis: %v", err)
 	}

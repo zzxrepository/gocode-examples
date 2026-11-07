@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>从启动到查询文章：逐行理解 Go Web 项目</title>
+<style>
+:root{color-scheme:light dark;--bg:#fafaf8;--panel:#fff;--ink:#24292d;--muted:#59636b;--line:#dce1e2;--accent:#176958;--soft:#edf5f1;--code:#f0f2f3;--warm:#fff5df;--font:16px}
+@media(prefers-color-scheme:dark){:root{--bg:#181b1d;--panel:#202528;--ink:#e5e9eb;--muted:#aeb8bd;--line:#3b454b;--accent:#86d2b9;--soft:#243a32;--code:#272e33;--warm:#3b3221}}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:var(--bg);color:var(--ink);font:var(--font)/1.85 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}a{color:var(--accent);text-underline-offset:4px}header{max-width:1160px;margin:auto;padding:52px 28px 30px}header .eyebrow{font-size:14px;color:var(--accent);letter-spacing:.06em}h1{font-size:clamp(26px,4vw,38px);line-height:1.4;margin:12px 0 18px;max-width:850px}h2{font-size:26px;line-height:1.5;margin:0 0 20px}h3{font-size:21px;line-height:1.5;margin:0 0 16px}h4{font-size:17px;margin:24px 0 10px}p{margin:12px 0}strong{font-weight:650}code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}code{font-size:.88em;background:var(--code);padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}pre{background:var(--code);padding:18px 20px;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;margin:15px 0;font-size:14px}pre code{padding:0;background:none;font-size:inherit;border-radius:0}.layout{max-width:1160px;margin:auto;padding:0 28px 60px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:42px}aside nav{position:sticky;top:24px;display:grid;gap:7px;font-size:14px}aside a{padding:5px 0;text-decoration:none;color:var(--muted)}aside a:hover{color:var(--accent)}aside .nav-title{font-size:12px;letter-spacing:.08em;color:var(--muted);margin:7px 0 12px}main{min-width:0}section{padding:32px 0;border-top:1px solid var(--line)}article{margin:28px 0 36px}.lead{max-width:850px;color:var(--muted)}.note{padding:16px 20px;background:var(--soft);border-left:3px solid var(--accent);margin:20px 0}.question{padding:16px 20px;background:var(--warm);margin:20px 0;border-radius:6px}.label{display:block;font-size:13px;color:var(--muted);margin:16px 0 5px}.source{font-size:13px;color:var(--muted)}.source code{font-size:12px}.tag{display:inline-block;padding:3px 9px;background:var(--soft);color:var(--accent);border-radius:5px;font-size:13px;margin-bottom:10px}.compare{font-size:14px;color:var(--muted);margin:18px 0}.flow{display:flex;align-items:stretch;flex-wrap:wrap;gap:10px;margin:22px 0}.flow .node{padding:12px 15px;background:var(--panel);border:1px solid var(--line);border-radius:6px;flex:1;min-width:135px}.flow small{display:block;color:var(--muted);font-size:13px}.flow .arrow{align-self:center;color:var(--accent)}.stack{display:grid;gap:6px;margin:20px 0}.stack .node{padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-radius:6px}.stack .arrow{padding-left:18px;color:var(--muted);font-size:13px}.twocol{display:grid;grid-template-columns:1fr 1fr;gap:20px}.twocol>div{min-width:0}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px}th,td{text-align:left;padding:12px 10px;vertical-align:top;border-bottom:1px solid var(--line)}th{font-weight:600;background:var(--soft)}ul,ol{padding-left:24px}li{margin:8px 0}details{border-top:1px solid var(--line);padding:14px 0}summary{cursor:pointer;color:var(--accent);font-weight:600}footer{color:var(--muted);font-size:13px;padding-top:26px;border-top:1px solid var(--line)}:focus-visible{outline:2px solid var(--accent);outline-offset:4px}@media(max-width:820px){.layout{grid-template-columns:minmax(0,1fr);gap:22px}aside nav{position:static;display:flex;flex-wrap:wrap;gap:6px 18px}aside .nav-title{width:100%;margin:0}header{padding-top:30px}.twocol{grid-template-columns:1fr}}@media(max-width:460px){header,.layout{padding-left:18px;padding-right:18px}h2{font-size:23px}.flow{display:grid;grid-template-columns:1fr}.flow .arrow{justify-self:center;transform:rotate(90deg)}pre{padding:14px;font-size:13px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}@media print{aside{display:none}.layout{display:block}body{font-size:11pt}header{padding-top:0}section{break-before:auto}pre,.note,.question{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header>
+<div class="eyebrow">01-HTTP-DEMO / 按项目实际代码讲解</div>
+<h1>程序启动时准备了什么？<br>一次查询文章请求又如何使用它们？</h1>
+<p class="lead">从你熟悉的 Spring Boot / Spring MVC 出发，沿着 main、构造函数、路由、Handler、Service、Repository，把每一步的输入、动作和结果连接起来。这里讲应用层流程，不展开网络和运行时底层实现。</p>
+<div class="note"><strong>先记住两个动作：</strong>启动时<strong>创建对象、把依赖传进去</strong>；请求到来时<strong>调用已经创建好的对象的方法、传入本次请求的数据</strong>。下文会反复用实际代码说明这句话。</div>
+</header>
+<div class="layout">
+<aside><nav aria-label="阅读目录">
+<div class="nav-title">建议从上到下阅读</div>
+<a href="#roles">1. 先认识这几个角色</a>
+<a href="#startup">2. 启动时一步步做什么</a>
+<a href="#constructor">3. 构造函数到底做了什么</a>
+<a href="#injection">4. 依赖注入和 Spring 对照</a>
+<a href="#request">5. 查询文章的完整请求</a>
+<a href="#redis">6. Redis 在哪里参与</a>
+<a href="#confusions">7. 容易混淆的问题</a>
+<a href="#reading">8. 按什么顺序看源码</a>
+</nav></aside>
+<main>
+<section id="roles">
+<h2>1. 先认识这几个角色</h2>
+<p>假设你要实现一个接口：<strong>根据文章 ID 查询文章，返回 JSON。</strong>项目把这件事分给三个对象完成。先理解职责，再看创建过程。</p>
+<div class="flow" aria-label="请求的业务调用方向">
+<div class="node"><strong>PostHandler</strong><small>接 HTTP 请求、取参数、写响应<br>近似 Controller</small></div><span class="arrow" aria-hidden="true">→</span>
+<div class="node"><strong>PostService</strong><small>组织文章业务逻辑<br>近似 Service</small></div><span class="arrow" aria-hidden="true">→</span>
+<div class="node"><strong>PostRepository</strong><small>执行文章 SQL、读取结果<br>近似 DAO / Mapper</small></div>
+</div>
+<p>它们之间的联系由普通方法调用建立：Handler 调 Service，Service 调 Repository，Repository 使用数据库连接池访问 MySQL。</p>
+<div class="table-wrap"><table><thead><tr><th>名字</th><th>它是什么</th><th>在查询文章时负责什么</th></tr></thead><tbody>
+<tr><td><code>db</code></td><td>MySQL 连接池，类型为 <code>*sql.DB</code></td><td>提供执行数据库操作的能力</td></tr>
+<tr><td><code>postRepo</code></td><td>一个 <code>PostRepository</code> 对象的指针</td><td>保存 <code>db</code>，使用它执行文章查询 SQL</td></tr>
+<tr><td><code>postSvc</code></td><td>一个 <code>PostService</code> 对象的指针</td><td>保存 <code>postRepo</code>，调用它完成数据访问</td></tr>
+<tr><td><code>postHandler</code></td><td>一个 <code>PostHandler</code> 对象的指针</td><td>保存 <code>postSvc</code>，把 HTTP 请求转成业务方法调用</td></tr>
+</tbody></table></div>
+<p><strong>依赖</strong>的意思是：一个对象完成工作时，需要使用另一个对象。例如 PostRepository 要执行 SQL，需要数据库连接池；因此说“PostRepository 依赖 db”。</p>
+<div class="question"><strong>一个重要区别：</strong><code>PostService</code> 是类型名，可以近似理解成 Java 的类名；<code>postSvc</code> 是变量名，指向这次启动时创建出来的对象。后面调用的是这个具体对象的方法。</div>
+</section>
+
+<section id="startup">
+<h2>2. 启动时，一步步做什么</h2>
+<p>业务启动入口是 <a href="cmd/api/main.go">cmd/api/main.go</a> 的 <code>main()</code>。这里先把文章接口需要的依赖准备好，然后启动 HTTP 服务。</p>
+<p>下面按实际代码顺序展开。为了集中看主线，部分片段省略了日志和错误处理；项目中的数据库、Redis 连接失败都会停止启动。</p>
+
+<article id="start-config"><span class="tag">启动 · 第 1 步</span><h3>读取配置：知道要连哪里、监听哪里</h3>
+<pre><code>cfg := config.Load()</code></pre>
+<p><code>config.Load()</code> 读取环境变量；没有设置时使用默认值。返回的 <code>cfg</code> 包含 HTTP 监听地址、MySQL 连接信息、Redis 地址、JWT 密钥和有效期。</p>
+<p>例如默认 HTTP 地址是 <code>:8081</code>。这一刻只是把地址读进配置对象，<strong>还没有监听端口</strong>。</p>
+<p><strong>本步结果：</strong>得到 <code>cfg</code>。后续创建数据库客户端、Redis 客户端和 HTTP 服务时，要使用它里面的字段。</p>
+<p class="compare">Spring 对照：近似于应用启动时读取配置并得到配置属性的职责。本项目直接调用函数读取，没有使用 Spring 的配置绑定机制。</p>
+<p class="source">源码：<a href="internal/config/config.go">internal/config/config.go</a>，<code>Load</code>。</p></article>
+
+<article id="start-db"><span class="tag">启动 · 第 2 步</span><h3>初始化 MySQL 和 Redis 客户端</h3>
+<pre><code>db, err := mysql.NewClient(cfg.MySQLDSN)
+// 检查 err，连接失败则退出。
+
+rdb, err := redis.NewClient(
+    cfg.RedisAddr,
+    cfg.RedisPassword,
+    cfg.RedisDB,
+)
+// 检查 err，连接失败则退出。</code></pre>
+<p><code>mysql.NewClient</code> 创建 <code>*sql.DB</code>、设置连接池参数，并用 <code>Ping()</code> 检查数据库连接。<code>*sql.DB</code> 表示可复用的数据库访问对象，管理底层连接的使用。</p>
+<p><code>redis.NewClient</code> 创建 Redis 客户端，也会执行 <code>Ping</code>。客户端封装了地址、密码等连接配置，后续业务调用它来操作 Redis。</p>
+<p><strong>这里初始化的是访问外部服务的能力。</strong>它不会把 articles、users 等数据全部读进来，也没有执行查询文章的 SQL。</p>
+<p><strong>本步结果：</strong>有了 <code>db</code> 和 <code>rdb</code>。同一个 <code>db</code> 随后会传给用户 Repository 和文章 Repository；<code>rdb</code> 会传给会话 Repository。</p>
+<p class="compare">Spring 对照：职责接近于创建 DataSource、Redis 客户端等基础设施组件。</p>
+<p class="source">源码：<a href="internal/infra/mysql/client.go">internal/infra/mysql/client.go</a>、<a href="internal/infra/redis/client.go">internal/infra/redis/client.go</a>。</p></article>
+
+<article id="start-repo"><span class="tag">启动 · 第 3 步</span><h3>创建 Repository：让数据访问对象拿到客户端</h3>
+<pre><code>userRepo := repository.NewUserRepository(db)
+postRepo := repository.NewPostRepository(db)
+sessionRepo := repository.NewSessionRepository(rdb)</code></pre>
+<p>现在客户端已经创建好，把它们传给负责具体数据操作的对象。例如 <code>NewPostRepository(db)</code> 接收刚才的数据库连接池，创建一个 PostRepository，把这个连接池保存到它的字段里。</p>
+<pre><code>// NewPostRepository 的实际实现
+func NewPostRepository(db *sql.DB) *PostRepository {
+    return &amp;PostRepository{db: db}
+}</code></pre>
+<p><code>postRepo</code> 此时已经知道“以后执行 SQL 要使用哪个数据库连接池”。但创建 Repository 这一步没有执行查询。</p>
+<p><strong>本步结果：</strong>三个 Repository 已创建，且各自保存了所需客户端。文章这一条链现在是：</p>
+<pre><code>postRepo.db ──指向──&gt; 启动时创建的 db</code></pre>
+<p class="source">源码：<a href="internal/repository/post_repository.go">internal/repository/post_repository.go</a>，<code>NewPostRepository</code>。</p></article>
+
+<article id="start-service"><span class="tag">启动 · 第 4 步</span><h3>创建 Service：把 Repository 传给业务对象</h3>
+<pre><code>authSvc := service.NewAuthService(
+    userRepo, sessionRepo, cfg.JWTSecret, cfg.JWTExpire,
+)
+postSvc := service.NewPostService(postRepo)</code></pre>
+<p>文章 Service 需要查询文章，因此它需要 PostRepository。这里把上一步的 <code>postRepo</code> 作为参数传进去。</p>
+<pre><code>type PostService struct {
+    posts *repository.PostRepository
+}
+
+func NewPostService(posts *repository.PostRepository) *PostService {
+    return &amp;PostService{posts: posts}
+}</code></pre>
+<p><code>postSvc.posts</code> 保存的就是传入的 <code>postRepo</code> 指针。以后 PostService 的方法里执行 <code>s.posts.FindByID(...)</code>，调用的就是这个 Repository。</p>
+<p>认证 Service 需要两种数据来源：MySQL 中的用户信息、Redis 中的会话信息，因此会同时接收 <code>userRepo</code> 和 <code>sessionRepo</code>，还接收 JWT 配置。</p>
+<p><strong>本步结果：</strong>文章业务对象创建好，并且连接到了数据访问对象：</p>
+<pre><code>postSvc.posts ──指向──&gt; postRepo
+postRepo.db   ──指向──&gt; db</code></pre>
+<p class="source">源码：<a href="internal/service/post_service.go">internal/service/post_service.go</a>，<code>NewPostService</code>。</p></article>
+
+<article id="start-handler"><span class="tag">启动 · 第 5 步</span><h3>进入 server.New，创建 Handler</h3>
+<pre><code>// main.go
+server.New(cfg, authSvc, postSvc).Run()
+
+// server.New 内部先执行：
+authHandler := handler.NewAuthHandler(authSvc)
+postHandler := handler.NewPostHandler(postSvc)</code></pre>
+<p>这里先调用 <code>server.New(...)</code>，它返回 Server 对象，再调用这个对象的 <code>Run()</code>。<strong>New 内部的初始化完成后，才会执行 Run。</strong></p>
+<p>PostHandler 处理文章 HTTP 请求，需要调用文章 Service，所以创建时接收 <code>postSvc</code>：</p>
+<pre><code>type PostHandler struct {
+    posts *service.PostService
+}
+
+func NewPostHandler(posts *service.PostService) *PostHandler {
+    return &amp;PostHandler{posts: posts}
+}</code></pre>
+<p><strong>本步结果：</strong>HTTP 层、业务层、数据访问层已经连接起来：</p>
+<pre><code>postHandler.posts → postSvc
+postSvc.posts     → postRepo
+postRepo.db       → db</code></pre>
+<p class="compare">Spring 对照：近似于创建 Controller，并通过构造函数把 Service 注入 Controller。</p>
+<p class="source">源码：<a href="internal/server/server.go">internal/server/server.go</a> 的 <code>New</code>；<a href="internal/handler/post_handler.go">internal/handler/post_handler.go</a> 的 <code>NewPostHandler</code>。</p></article>
+
+<article id="start-route"><span class="tag">启动 · 第 6 步</span><h3>注册路由：告诉程序“这个请求由谁处理”</h3>
+<pre><code>mux := http.NewServeMux()
+
+mux.HandleFunc("GET /api/v1/posts/{id}", postHandler.Get)</code></pre>
+<p><code>mux</code> 是路由器。上面的注册操作建立了一个映射：符合 <code>GET /api/v1/posts/{id}</code> 的请求，由刚创建的 <code>postHandler</code> 的 <code>Get</code> 方法处理。</p>
+<p>例如以后 <code>GET /api/v1/posts/42</code>、<code>GET /api/v1/posts/100</code> 都会匹配它，路径中的那一段分别被命名为 <code>id</code>。</p>
+<div class="question"><strong>为什么 <code>postHandler.Get</code> 没有括号？</strong><p>这里传给路由器的是“之后要调用的方法”。如果带上参数写成 <code>postHandler.Get(w, r)</code>，才是在执行调用；注册时还没有某次请求的 <code>w</code> 和 <code>r</code>。</p></div>
+<p>这个方法已经关联到具体的 <code>postHandler</code> 对象。请求到来时，路由器调用它，它就能继续访问自己的 <code>posts</code> 字段，也就是已注入的 Service。</p>
+<p><strong>本步结果：</strong>建立了请求到处理方法的入口。此时仍未查询文章，也未开始监听端口。</p>
+<p class="compare">Spring 对照：近似于建立 <code>@GetMapping("/api/v1/posts/{id}")</code> 所表达的请求映射。这里使用显式注册。</p>
+</article>
+
+<article id="start-server"><span class="tag">启动 · 第 7 步</span><h3>组装中间件，创建 HTTP Server</h3>
+<pre><code>httpHandler := middleware.Chain(
+    mux,
+    middleware.Logger,
+    middleware.Recovery,
+)
+
+httpServer := &amp;http.Server{
+    Addr:    cfg.HTTPAddr,
+    Handler: httpHandler,
+    // 实际代码还配置了读写超时等参数。
+}</code></pre>
+<p><strong>中间件（Middleware）</strong>在业务处理方法之外，增加通用处理逻辑。本项目的全局链是 <code>Logger(Recovery(mux))</code>。</p>
+<p><code>Logger</code> 负责请求耗时日志；<code>Recovery</code> 负责恢复处理链中发生的 panic；<code>mux</code> 负责找到具体业务处理方法。</p>
+<p>创建 <code>http.Server</code> 时，<code>Addr</code> 告诉它监听哪里，<code>Handler</code> 告诉它收到请求后先交给谁。这里的 Handler 是整个中间件和路由组成的处理链。</p>
+<p><strong>本步结果：</strong>HTTP Server 已配置好，但构造这个对象本身不会打开监听端口。</p>
+</article>
+
+<article id="start-listen"><span class="tag">启动 · 第 8 步</span><h3>调用 Run，开始监听并等待请求</h3>
+<pre><code>func (s *Server) Run() error {
+    return s.httpServer.ListenAndServe()
+}</code></pre>
+<p><code>Run()</code> 调用 <code>ListenAndServe()</code>，这时 HTTP 服务才开始监听端口。正常运行时，这个调用会持续提供服务；监听失败等情况则返回错误。</p>
+<p>到这里，启动阶段需要做的装配已经完成。后续请求可以使用准备好的对象链。</p>
+<div class="note"><strong>为什么按这个顺序创建？</strong><p>创建 Repository 要传 db，所以先有 db；创建 Service 要传 Repository，所以先有 Repository；创建 Handler 要传 Service，所以先有 Service。<strong>创建顺序通常从基础依赖向上层走，请求调用方向则从 HTTP 层向下层走。</strong></p></div>
+<pre><code>启动时的创建顺序：db → postRepo → postSvc → postHandler
+请求时的调用方向：postHandler → postSvc → postRepo → db</code></pre>
+</article>
+</section>
+
+<section id="constructor">
+<h2>3. 构造函数到底做了什么</h2>
+<p>这一节单独拆开下面这行，因为它同时包含“传参数、调用创建函数、创建对象、保存依赖、接收返回值”几个动作：</p>
+<pre><code>postRepo := repository.NewPostRepository(db)</code></pre>
+<p>按发生顺序读：</p>
+<ol>
+<li>从当前作用域取出已经创建好的 <code>db</code>。</li>
+<li>调用 <code>repository</code> 包中的 <code>NewPostRepository</code>，把这个 <code>db</code> 传进去。</li>
+<li>函数内部创建 <code>PostRepository</code> 对象，把传入的数据库指针存入对象的 <code>db</code> 字段。</li>
+<li>函数返回新对象的指针，main 用变量 <code>postRepo</code> 接收。</li>
+</ol>
+<pre><code>type PostRepository struct {
+    db *sql.DB // 对象的字段：保存数据库连接池指针
+}
+
+func NewPostRepository(db *sql.DB) *PostRepository {
+    return &amp;PostRepository{db: db}
+    //                     ↑   ↑
+    //                 字段名  函数参数的值
+}</code></pre>
+<p><code>PostRepository{db: db}</code> 是结构体初始化：左边的 <code>db:</code> 表示要设置哪个字段，右边的 <code>db</code> 表示用什么值设置。它们恰好同名，含义不同。</p>
+<p><code>&amp;</code> 表示这里返回对象的指针。此处最需要理解的是：Repository 保存了已有连接池的引用；<strong>没有再新建一套数据库连接池，也没有把整个数据库复制一份。</strong></p>
+<div class="question"><strong>为什么函数要叫 NewPostRepository？</strong><p>这是 Go 中常见的命名约定，表示“创建并返回一个 PostRepository”。它通常被称为构造函数，但本质是普通函数。Go 不会自动发现并执行名字以 <code>New</code> 开头的函数；必须有代码显式调用它。</p></div>
+<p>这个项目的 Repository、Service、Handler 创建函数都很简单：创建对象并保存参数。MySQL、Redis 的创建函数还会检查连接，因此可能返回错误。<strong>创建函数做哪些初始化，取决于函数体实际写了什么。</strong></p>
+<p>后续数据库操作使用的，就是刚才保存的字段：</p>
+<pre><code>// r 是先前创建的 PostRepository 对象。
+func (r *PostRepository) FindByID(ctx context.Context, id int64) (*model.Post, error) {
+    // r.db 就是构造时存入的 db。
+    // 后续通过它调用 QueryRowContext，执行查询。
+    ...
+}</code></pre>
+<p class="source">上面省略号用于说明字段如何被使用，完整实现见 <a href="internal/repository/post_repository.go">post_repository.go</a>。</p>
+</section>
+
+<section id="injection">
+<h2>4. 这为什么叫依赖注入？和 Spring 有什么关系？</h2>
+<p><strong>依赖注入（Dependency Injection，DI）</strong>是指：对象需要的依赖由外部提供。当前项目是在创建对象时，通过函数参数提供，因此称为<strong>手动依赖注入，采用构造函数注入的方式</strong>。</p>
+<p>例如 PostService 需要 PostRepository。main 先创建 Repository，再把它传给 Service：</p>
+<pre><code>postRepo := repository.NewPostRepository(db)
+postSvc := service.NewPostService(postRepo)</code></pre>
+<p>Service 并不需要自己决定数据库地址、自己建立连接、自己创建 Repository。它接收准备好的依赖，保存下来供业务方法使用。</p>
+<h3>把它翻译成容易理解的 Java 写法</h3>
+<p>下面只是对象装配的 Java 对照，变量类型名为示意：</p>
+<pre><code>// 手动创建并通过构造函数传入依赖
+PostRepository postRepo = new PostRepository(dataSource);
+PostService postSvc = new PostService(postRepo);
+PostController controller = new PostController(postSvc);</code></pre>
+<p>Go 项目中的这些 <code>New...</code> 调用，承担的就是类似工作。</p>
+<p>在通常的 Spring 应用中，你把 Controller、Service、Repository 等对象交给容器管理，Spring 根据配置和依赖关系完成创建、装配；本项目把相关调用直接写在 <code>main</code> 和 <code>server.New</code> 中。</p>
+<div class="table-wrap"><table><thead><tr><th>问题</th><th>常见 Spring 应用</th><th>当前 Go 项目</th></tr></thead><tbody>
+<tr><td>谁创建对象？</td><td>由 Spring 容器按配置创建和管理</td><td>main、server.New 显式调用创建函数</td></tr>
+<tr><td>谁传入依赖？</td><td>由容器完成依赖装配</td><td>代码显式传入 db、postRepo、postSvc</td></tr>
+<tr><td>怎样知道依赖谁？</td><td>查看构造函数等注入点和容器配置</td><td>查看 New 函数参数和结构体字段</td></tr>
+<tr><td>是否存在依赖注入？</td><td>存在，常由框架执行</td><td>存在，由应用代码手动执行</td></tr>
+</tbody></table></div>
+<h3>再分清两种“传参数”</h3>
+<div class="twocol"><div><span class="tag">启动时</span><pre><code>service.NewPostService(postRepo)</code></pre><p>传入的是<strong>长期使用的依赖</strong>：这个 Service 以后要通过哪个 Repository 访问数据。</p></div><div><span class="tag">请求时</span><pre><code>postSvc.FindByID(ctx, 42)</code></pre><p>传入的是<strong>这次工作的输入</strong>：当前请求要查询 ID 为 42 的文章。</p></div></div>
+<p>同样是函数参数，但含义不同。构造时通常还不知道本次请求要查 42 还是 100，所以文章 ID 不会放进这条启动装配代码里。</p>
+</section>
+
+<section id="request">
+<h2>5. 启动后，一次查询文章如何完成</h2>
+<p>假设客户端请求 <code>GET /api/v1/posts/42</code>，并且数据库里存在这篇文章。接下来按这一次请求实际执行的顺序看。</p>
+<div class="stack" aria-label="查询文章请求的完整调用链">
+<div class="node">HTTP Server 接收请求</div><div class="arrow">↓ 进入启动时配置好的处理入口</div>
+<div class="node">Logger → Recovery → ServeMux</div><div class="arrow">↓ 匹配 GET /api/v1/posts/{id}</div>
+<div class="node">PostHandler.Get：取出并校验 id = 42</div><div class="arrow">↓ 调用已有 Service 的方法</div>
+<div class="node">PostService.FindByID(ctx, 42)</div><div class="arrow">↓ 调用已有 Repository 的方法</div>
+<div class="node">PostRepository.FindByID(ctx, 42)</div><div class="arrow">↓ 使用已有 db 执行 SQL</div>
+<div class="node">MySQL 返回记录 → Scan 填充 Post</div><div class="arrow">↑ Repository → Service → Handler 返回结果</div>
+<div class="node">Handler 设置状态码，把结果序列化成 JSON 写入响应</div>
+</div>
+
+<article><span class="tag">请求 · 第 1 步</span><h3>HTTP 服务把请求交给全局处理链</h3>
+<p>HTTP Server 使用启动时设置的 <code>Handler</code> 来处理请求，所以会先进入 <code>Logger</code>，再进入 <code>Recovery</code>，最后到达 <code>ServeMux</code>。</p>
+<p>Logger 先记录开始时间，然后调用下一个处理者。Recovery 设置 panic 恢复逻辑，然后继续调用路由器。这两个中间件并不查询文章。</p>
+<pre><code>Logger 的处理顺序：
+记录开始时间
+    → 调用后续处理链
+    → 后续处理完成后，打印本次请求耗时</code></pre>
+<p class="compare">Spring 对照：这些是类似 Filter、Interceptor 等组件经常承担的通用职责。Go Middleware 的具体接口和执行机制与它们不同。</p>
+<p class="source">源码：<a href="internal/middleware/middleware.go">internal/middleware/middleware.go</a> 的 <code>Logger</code>、<code>Recovery</code>。</p></article>
+
+<article><span class="tag">请求 · 第 2 步</span><h3>路由器匹配路径，调用 PostHandler.Get</h3>
+<pre><code>这次请求： GET /api/v1/posts/42
+注册规则： GET /api/v1/posts/{id}
+匹配结果： id = "42"
+处理方法： postHandler.Get(w, r)</code></pre>
+<p>ServeMux 根据 HTTP 方法和 URL 路径选择处理方法。这里已经进入请求阶段，才真正调用 <code>Get</code>。</p>
+<p><code>w</code> 是 <code>http.ResponseWriter</code>，用于写响应；<code>r</code> 是 <code>*http.Request</code>，用于读取当前请求的信息。不同请求有自己的请求数据和响应写入接口。</p>
+<p class="compare">Spring 对照：可近似理解成请求分发与 HandlerMapping 根据映射找到 Controller 方法的部分职责。本项目不包含 Spring MVC 完整的分发、参数解析等组件体系。</p></article>
+
+<article><span class="tag">请求 · 第 3 步</span><h3>Handler 读取路径参数，把字符串转成数字</h3>
+<pre><code>// PostHandler.Get 的开头
+id, ok := parseID(w, r)
+if !ok {
+    return
+}</code></pre>
+<p><code>parseID</code> 内部读取路径变量并转换：</p>
+<pre><code>id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+if err != nil || id &lt;= 0 {
+    httpapi.WriteResponse(w, http.StatusBadRequest, "invalid id", nil)
+    return 0, false
+}
+return id, true</code></pre>
+<p><code>r.PathValue("id")</code> 得到字符串 <code>"42"</code>；<code>ParseInt</code> 把它转换成 <code>int64</code> 数值 42，再检查它大于零。</p>
+<p>这一层把 HTTP 参数转成业务方法可以使用的数据。例如请求 <code>/posts/abc</code> 时，参数转换失败，Handler 直接写入 <code>400 Bad Request</code> 并结束，Service 和 Repository 都不会被调用。</p>
+<p class="compare">Spring 对照：近似于 Controller 参数绑定、类型转换和校验的职责。当前项目通过函数显式完成。</p></article>
+
+<article><span class="tag">请求 · 第 4 步</span><h3>Handler 使用注入的 Service</h3>
+<pre><code>post, err := h.posts.FindByID(r.Context(), id)</code></pre>
+<p>把这行里的每个名字展开：</p>
+<ul>
+<li><code>h</code>：正在处理请求的 PostHandler，也就是启动时创建并注册到路由器的那个对象。</li>
+<li><code>h.posts</code>：Handler 的字段，里面保存启动时传入的 <code>postSvc</code>。</li>
+<li><code>FindByID</code>：文章 Service 的查询方法。</li>
+<li><code>id</code>：刚从这次请求取出的数值 42。</li>
+<li><code>r.Context()</code>：这次请求的上下文，继续向下传递，使数据库操作能够感知请求取消等信号。</li>
+</ul>
+<p>因此，这行做的是：<strong>找到已有的 postSvc，调用它的 FindByID 方法，告诉它这次要查 42。</strong>没有再次调用 <code>NewPostService</code>。</p>
+</article>
+
+<article><span class="tag">请求 · 第 5 步</span><h3>Service 再使用注入的 Repository</h3>
+<pre><code>func (s *PostService) FindByID(ctx context.Context, id int64) (*model.Post, error) {
+    return s.posts.FindByID(ctx, id)
+}</code></pre>
+<p><code>s.posts</code> 保存的是启动时传入的 <code>postRepo</code>。Service 把同一个上下文和文章 ID 交给 Repository。</p>
+<p>本项目这段业务逻辑比较简单，Service 直接转发。如果以后增加文章可见性、权限判断或其他业务规则，可以在这一层组织。</p>
+<p>此时发生的是<strong>普通的方法调用</strong>，不是新的 HTTP 请求，也不是向另一个微服务发请求。Handler、Service、Repository 都在同一个程序中。</p>
+<p class="source">源码：<a href="internal/service/post_service.go">internal/service/post_service.go</a> 的 <code>FindByID</code>。</p></article>
+
+<article><span class="tag">请求 · 第 6 步</span><h3>Repository 使用连接池执行 SQL</h3>
+<pre><code>func (r *PostRepository) FindByID(ctx context.Context, id int64) (*model.Post, error) {
+    const query = "SELECT id, title, content, user_id, created_at, updated_at FROM posts WHERE id = ?"
+    post := new(model.Post)
+    if err := r.db.QueryRowContext(ctx, query, id).Scan(
+        &amp;post.ID, &amp;post.Title, &amp;post.Content,
+        &amp;post.UserID, &amp;post.CreatedAt, &amp;post.UpdatedAt,
+    ); err != nil {
+        return nil, err
+    }
+    return post, nil
+}</code></pre>
+<p>这里的接收者 <code>r</code> 是 Repository；它和 Handler 方法中名为 <code>r</code> 的 HTTP Request 是不同作用域中的变量，恰好用了相同名字。</p>
+<p><code>r.db</code> 就是启动时存入 Repository 的数据库连接池。<code>QueryRowContext(ctx, query, id)</code> 使用参数化 SQL 查询单行记录，<code>id</code> 的值为 42。</p>
+<p><code>?</code> 是参数占位符，驱动把单独传入的 42 作为 SQL 参数处理。这里没有手动拼接文章 ID 到 SQL 文本中。</p>
+<p><code>post := new(model.Post)</code> 创建这次查询的结果对象。随后 <code>Scan</code> 按查询列的顺序，把数据库字段写入 <code>post</code> 的字段。这一步叫<strong>查询结果映射</strong>。</p>
+<div class="question"><strong>这里为什么又创建了 Post？</strong><p>Post 是这次请求查出来的数据。它与启动时创建并复用的 Service、Repository、连接池用途不同。每次查询需要自己的结果对象。</p></div>
+<p>如果成功，返回 <code>post, nil</code>；如果查不到记录，返回 <code>nil, sql.ErrNoRows</code>；如果出现其他数据库错误，返回相应错误。</p>
+<p class="source">源码：<a href="internal/repository/post_repository.go">internal/repository/post_repository.go</a> 的 <code>FindByID</code>。</p></article>
+
+<article><span class="tag">请求 · 第 7 步</span><h3>结果沿普通调用链返回给 Handler</h3>
+<pre><code>PostRepository.FindByID 返回 post / error
+             ↑
+PostService.FindByID 返回 post / error
+             ↑
+PostHandler.Get 接收到 post / error</code></pre>
+<p>调用关系是嵌套的，所以 Repository 返回后，程序继续执行 Service 的返回；Service 返回后，程序继续执行 Handler 中调用语句后面的代码。</p>
+<pre><code>post, err := h.posts.FindByID(r.Context(), id)
+if err != nil {
+    writeSQLError(w, err)
+    return
+}
+
+httpapi.WriteResponse(w, http.StatusOK, "ok", post)</code></pre>
+<p>Handler 根据结果决定怎样响应：成功返回 200；查不到文章时 <code>writeSQLError</code> 返回 404；其他数据库错误返回 500。</p>
+<p><strong>Repository 和 Service 返回的是 Go 值和 error。HTTP 状态码与 JSON 响应是在 Handler 这一侧决定和写出的。</strong></p></article>
+
+<article><span class="tag">请求 · 第 8 步</span><h3>组织响应对象，序列化成 JSON</h3>
+<pre><code>func WriteResponse(w http.ResponseWriter, status int, message string, data any) {
+    WriteJSON(w, status, model.Response{
+        Code: status, Message: message, Data: data,
+    })
+}
+
+func WriteJSON(w http.ResponseWriter, status int, data any) {
+    w.Header().Set("Content-Type", "application/json; charset=utf-8")
+    w.WriteHeader(status)
+    _ = json.NewEncoder(w).Encode(data)
+}</code></pre>
+<p>第一步，创建统一响应对象，把 <code>code</code>、<code>message</code>、<code>data</code> 组合起来。第二步，设置响应头和 HTTP 状态码。第三步，把 Go 对象序列化成 JSON，写入响应体。</p>
+<p>这里的 <code>data</code> 是刚才查出的 Post。字段名来自结构体上的 <code>json</code> 标签，例如 <code>ID</code> 对应 JSON 中的 <code>id</code>。</p>
+<span class="label">假设数据库存在文章 42，响应内容示意：</span>
+<pre><code>HTTP 状态码：200
+Content-Type: application/json; charset=utf-8
+
+{
+  "code": 200,
+  "message": "ok",
+  "data": {
+    "id": 42,
+    "title": "示例文章",
+    "content": "示例正文",
+    "user_id": 1,
+    "created_at": "2026-11-07T10:00:00+08:00",
+    "updated_at": "2026-11-07T10:00:00+08:00"
+  }
+}</code></pre>
+<p class="compare">Spring 对照：类似使用 <code>@ResponseBody</code> 或 <code>@RestController</code> 返回对象后，由消息转换器完成 JSON 序列化的职责。当前项目自己调用编码函数写响应，Handler 本身不直接 return 一个响应对象。</p>
+<p class="source">源码：<a href="internal/httpapi/json.go">internal/httpapi/json.go</a>、<a href="internal/model/response.go">internal/model/response.go</a>、<a href="internal/model/post.go">internal/model/post.go</a>。</p></article>
+
+<article><span class="tag">请求 · 第 9 步</span><h3>中间件结束本次处理，服务继续等待其他请求</h3>
+<p>业务 Handler 执行完成，调用链逐层返回。Logger 在调用后续处理链的语句之后打印耗时。HTTP 服务完成响应传输，客户端收到结果。</p>
+<p>这次请求结束并不会销毁刚才复用的 PostHandler、PostService、PostRepository 和数据库连接池。下次请求 <code>GET /api/v1/posts/100</code> 时，还是沿着它们执行，传入的 ID 变成 100，查询结果也随之变化。</p>
+<p>这些请求可以并发执行。因此，当前代码把请求 ID 放在方法参数中，而不把“当前文章 ID”保存到所有请求共用的 Service 字段里。</p>
+</article>
+</section>
+
+<section id="redis">
+<h2>6. Redis 到底在哪里参与</h2>
+<p>当前项目的文章查询没有缓存逻辑，也不需要登录，所以查询文章的流程是 <strong>Handler → Service → Repository → MySQL</strong>，没有 Redis。</p>
+<p>Redis 用在登录会话上。它属于另一个分支：</p>
+<pre><code>启动时：
+rdb → SessionRepository → AuthService
+
+登录请求：
+AuthHandler.Login
+  → AuthService.Login
+  → UserRepository 查询 MySQL 中的用户
+  → 校验密码、生成 JWT
+  → SessionRepository.SaveToken 把 Token 存入 Redis
+  → 返回 Token
+
+创建、更新、删除文章的请求：
+全局中间件 → 路由匹配 → Auth 中间件
+  → 从 Authorization 请求头读取 Bearer Token
+  → AuthService 校验 JWT，并查询 Redis 检查会话
+  → 校验通过，把用户 ID 放入请求上下文
+  → 调用相应文章 Handler</code></pre>
+<p>写接口的认证链在启动时注册：</p>
+<pre><code>protected := middleware.Auth(authSvc)
+mux.Handle("POST /api/v1/posts",
+    protected(http.HandlerFunc(postHandler.Create)))</code></pre>
+<p>这里先把创建文章的处理方法包上一层 Auth 中间件，再注册给路由器。读取文章的路由没有这一层包装。</p>
+<div class="note"><strong>“启动时初始化 Redis”与“每个请求都访问 Redis”是两件事。</strong><p>本项目整个服务启动时要求 Redis Ping 成功；但文章查询请求本身不访问 Redis。业务调用哪些依赖，要看这条请求实际经过的方法。</p></div>
+<p class="source">源码：<a href="internal/service/auth_service.go">internal/service/auth_service.go</a>、<a href="internal/repository/session_repository.go">internal/repository/session_repository.go</a>、<a href="internal/middleware/middleware.go">internal/middleware/middleware.go</a>。</p>
+</section>
+
+<section id="confusions">
+<h2>7. 容易混淆的问题</h2>
+<details open><summary>Go 会不会像 Spring 一样自动扫描这些类型并创建对象？</summary><p>当前项目没有这种机制。创建对象的动作都能在 main 和 server.New 中找到。如果只定义一个 New 函数，但任何地方都不调用它，这个函数就不会替你创建对象。</p></details>
+<details open><summary>启动时是不是已经把接口执行了一遍？</summary><p>没有。启动时执行创建函数、配置中间件、注册路由和监听端口。真正执行文章 Get、FindByID 和查询 SQL，要等匹配的请求到来。启动中执行的 Ping 是检查外部依赖连接，不是查询文章。</p></details>
+<details open><summary>为什么 db 要一层层传？能不能 Handler 自己直接连数据库？</summary><p>技术上可以直接连接，但这个项目采用分层设计：Handler 处理 HTTP，Service 处理业务，Repository 处理数据访问，infra 负责客户端初始化。依赖只传给直接使用它的那一层。这里 db 传给 Repository，Service 接收 Repository，Handler 接收 Service。</p></details>
+<details open><summary>Service 和 Handler 的字段都叫 posts，会不会是同一个东西？</summary><p>字段名相同，但类型不同。Handler 的 posts 是 <code>*service.PostService</code>；Service 的 posts 是 <code>*repository.PostRepository</code>。阅读时要看“这个字段属于哪个结构体、类型是什么”，不能只看字段名字。</p></details>
+<details open><summary>对象是在 main 创建的，main 开始监听以后还能用吗？</summary><p>可以。Handler 持有 Service，Service 持有 Repository，Repository 持有数据库连接池；路由保存了关联 Handler 的处理方法，Server 保存了路由处理链。对象之间的引用关系保留着，不需要把每个对象都声明成全局变量。</p></details>
+<details open><summary>函数调用和 HTTP 请求有什么区别？</summary><p>客户端到本服务是一次 HTTP 请求。进入本服务后，Handler 调 Service、Service 调 Repository 都是程序内的方法调用。Repository 执行 SQL 时才通过数据库客户端与 MySQL 通信。</p></details>
+<details open><summary>每个请求都会重新初始化 Redis 和 MySQL 吗？</summary><p>当前代码不会。初始化放在 main 中，只在这次程序启动时执行。请求里创建的是参数、查询结果和响应等数据，使用的是已经准备好的基础设施对象。</p></details>
+</section>
+
+<section id="reading">
+<h2>8. 按什么顺序看源码</h2>
+<p>第一次只沿着查询文章这一条线阅读，按以下顺序打开文件。每次只回答右侧那个问题：</p>
+<div class="table-wrap"><table><thead><tr><th>顺序与文件</th><th>先看哪里</th><th>要弄清的问题</th></tr></thead><tbody>
+<tr><td>① <a href="cmd/api/main.go">main.go</a></td><td>main</td><td>先创建谁，又把它传给谁？</td></tr>
+<tr><td>② <a href="internal/repository/post_repository.go">post_repository.go</a></td><td>结构体、NewPostRepository</td><td>db 被保存到了哪个字段？</td></tr>
+<tr><td>③ <a href="internal/service/post_service.go">post_service.go</a></td><td>结构体、NewPostService</td><td>postRepo 被保存到了哪个字段？</td></tr>
+<tr><td>④ <a href="internal/handler/post_handler.go">post_handler.go</a></td><td>结构体、NewPostHandler</td><td>postSvc 被保存到了哪个字段？</td></tr>
+<tr><td>⑤ <a href="internal/server/server.go">server.go</a></td><td>New、Run</td><td>请求路径如何绑定到 Get，何时开始监听？</td></tr>
+<tr><td>⑥ <a href="internal/handler/post_handler.go">post_handler.go</a></td><td>Get、parseID</td><td>文章 ID 从哪里读出，如何调用 Service？</td></tr>
+<tr><td>⑦ <a href="internal/service/post_service.go">post_service.go</a></td><td>FindByID</td><td>怎样继续调用 Repository？</td></tr>
+<tr><td>⑧ <a href="internal/repository/post_repository.go">post_repository.go</a></td><td>FindByID</td><td>怎样执行 SQL，怎样把结果装进 Post？</td></tr>
+<tr><td>⑨ <a href="internal/httpapi/json.go">json.go</a></td><td>WriteResponse、WriteJSON</td><td>Go 对象怎样变成 HTTP JSON 响应？</td></tr>
+</tbody></table></div>
+</section>
+<footer>说明基于当前项目源代码。Spring 对照用于解释相近职责，不表示两边的对象、接口或生命周期机制完全相同。代码中的省略和示意已在相邻文字中标明；示例文章内容仅用于展示响应格式。此文件可直接在浏览器中离线打开。</footer>
+</main>
+</div>
+</body>
+</html>

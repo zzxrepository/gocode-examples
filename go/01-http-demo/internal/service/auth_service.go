@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"gin-demo-v1/internal/model"
-	"gin-demo-v1/internal/repository"
+	"http-demo/internal/model"
+	"http-demo/internal/repository"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"

@@ -6,24 +6,22 @@ import (
 	"log"
 	"os"
 	"time"
-
-	"database-sql-demo/internal/store"
 )
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	baseDB, err := store.OpenMySQL(ctx, mysqlConfig())
+	baseDB, err := OpenMySQL(ctx, mysqlConfig())
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer baseDB.Close()
 
 	// sqlx 仅包装现有 *sql.DB，连接池仍由 database/sql 管理。
-	db := store.NewSQLX(baseDB)
+	db := NewSQLX(baseDB)
 
-	product, err := store.CreateProductSQLX(ctx, db, store.CreateProductParams{
+	product, err := CreateProduct(ctx, db, CreateProductInput{
 		SKU:        fmt.Sprintf("keyboard-sqlx-%d", time.Now().UnixNano()),
 		Name:       "sqlx 机械键盘",
 		PriceCents: 49900,
@@ -34,24 +32,24 @@ func main() {
 	}
 	log.Printf("创建商品: id=%d stock=%d", product.ID, product.Stock)
 
-	if product, err = store.GetProductSQLX(ctx, db, product.ID); err != nil {
+	if product, err = GetProduct(ctx, db, product.ID); err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("查询商品: sku=%s name=%s", product.SKU, product.Name)
 
-	if changed, err := store.UpdateProductNameSQLX(ctx, db, product.ID, "sqlx 热插拔机械键盘"); err != nil {
+	if changed, err := UpdateProductName(ctx, db, product.ID, "sqlx 热插拔机械键盘"); err != nil {
 		log.Fatal(err)
 	} else {
 		log.Printf("更新商品名称: changed=%t", changed)
 	}
 
-	products, err := store.ListProductsSQLX(ctx, db)
+	products, err := ListProducts(ctx, db)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("当前商品数: %d", len(products))
 
-	orderID, err := store.PlaceOrderSQLX(ctx, db, store.PlaceOrderInput{
+	orderID, err := PlaceOrder(ctx, db, PlaceOrderInput{
 		CustomerID: 10002,
 		ProductID:  product.ID,
 		Quantity:   2,
@@ -60,13 +58,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	updated, err := store.GetProductSQLX(ctx, db, product.ID)
+	updated, err := GetProduct(ctx, db, product.ID)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("下单成功: order_id=%d; 下单后库存=%d", orderID, updated.Stock)
 
-	temporary, err := store.CreateProductSQLX(ctx, db, store.CreateProductParams{
+	temporary, err := CreateProduct(ctx, db, CreateProductInput{
 		SKU:        fmt.Sprintf("temporary-sqlx-%d", time.Now().UnixNano()),
 		Name:       "待删除演示商品",
 		PriceCents: 1,
@@ -75,7 +73,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if deleted, err := store.DeleteProductSQLX(ctx, db, temporary.ID); err != nil {
+	if deleted, err := DeleteProduct(ctx, db, temporary.ID); err != nil {
 		log.Fatal(err)
 	} else {
 		log.Printf("删除临时商品: deleted=%t", deleted)
@@ -85,11 +83,11 @@ func main() {
 	log.Printf("连接池: open=%d idle=%d in_use=%d wait_count=%d", stats.OpenConnections, stats.Idle, stats.InUse, stats.WaitCount)
 }
 
-func mysqlConfig() store.MySQLConfig {
-	return store.MySQLConfig{
+func mysqlConfig() MySQLConfig {
+	return MySQLConfig{
 		User:     getenv("MYSQL_USER", "root"),
 		Password: getenv("MYSQL_PASSWORD", "rootpass"),
-		Address:  getenv("MYSQL_ADDRESS", "127.0.0.1:3307"),
+		Address:  getenv("MYSQL_ADDRESS", "127.0.0.1:3308"),
 		Database: getenv("MYSQL_DATABASE", "go_store"),
 	}
 }

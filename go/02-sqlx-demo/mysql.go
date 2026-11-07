@@ -1,4 +1,4 @@
-package store
+package main
 
 import (
 	"context"
@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	mysql "github.com/go-sql-driver/mysql"
+	drivermysql "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 )
 
 // MySQLConfig 将连接信息集中在启动阶段，避免业务 SQL 关心 DSN 细节。
@@ -19,7 +20,7 @@ type MySQLConfig struct {
 
 // OpenMySQL 创建并验证可复用的 database/sql 连接池。
 func OpenMySQL(ctx context.Context, cfg MySQLConfig) (*sql.DB, error) {
-	driverCfg := mysql.NewConfig()
+	driverCfg := drivermysql.NewConfig()
 	driverCfg.User = cfg.User
 	driverCfg.Passwd = cfg.Password
 	driverCfg.Net = "tcp"
@@ -53,4 +54,9 @@ func OpenMySQL(ctx context.Context, cfg MySQLConfig) (*sql.DB, error) {
 		return nil, fmt.Errorf("ping MySQL: %w", err)
 	}
 	return db, nil
+}
+
+// NewSQLX 只包装现有 *sql.DB，因此两者共享同一连接池。
+func NewSQLX(db *sql.DB) *sqlx.DB {
+	return sqlx.NewDb(db, "mysql")
 }

@@ -1,80 +1,64 @@
-# Go MySQL 数据访问 Demo：database/sql 与 sqlx
+# Go MySQL 数据访问 Demo：database/sql
 
-这个项目使用“下单扣库存”演示 Go 访问 MySQL 的完整主线：
+使用 Go 标准库 `database/sql`，显式演示参数绑定、结果扫描与事务。
 
-~~~text
+这个独立项目使用“下单扣库存”演示数据库访问：
+
+```text
 创建商品 -> 查询与更新 -> 锁定库存 -> 扣库存 -> 创建订单 -> 写入订单项 -> 删除临时商品
-~~~
+```
 
-它提供两个可独立运行的入口：
+重点 API：ExecContext、QueryRowContext、Rows、BeginTx。另一个独立示例见[配套项目](../02-sqlx-demo)。
 
-| 命令 | 使用的访问方式 | 关注点 |
-| --- | --- | --- |
-| make run | database/sql | ExecContext、QueryRowContext、Rows、BeginTx |
-| make run-sqlx | sqlx | GetContext、SelectContext、命名参数、sqlx.In、BeginTxx |
+## 文件结构
 
-两者连接同一个 MySQL，使用同一张表和同一套下单业务规则。sqlx 版本通过 sqlx.NewDb 包装已有的 *sql.DB，因此不会创建第二个连接池。
+```text
+01-database-sql-demo/
+├── go.mod
+├── main.go              # 演示入口、环境变量和执行步骤
+├── mysql.go             # 驱动配置与连接池初始化
+├── product.go           # 商品数据、输入校验及 CRUD
+├── order.go             # 下单校验和事务
+├── demo_test.go         # 不依赖 MySQL 的输入边界测试
+├── docker-compose.yml   # 本示例的 MySQL 容器
+├── schema.sql           # 建表脚本
+└── Makefile
+```
 
-## 环境要求
-
-- Docker 与 Docker Compose
-- Go 1.26.5
-
-Makefile 固定使用本机 Go 1.26.5，并把构建缓存放在项目内的 .cache/go-build。
+所有 Go 文件使用 `package main`，直接放在根目录。项目是命令行示例，当前不需要独立的 handler、service 或 repository 包。
 
 ## 运行
 
-~~~bash
-# 1. 启动 MySQL。schema.sql 会在首次创建数据卷时自动执行。
+需要 Docker Compose 和 Go 1.26.5。Makefile 使用本机 Go 1.26.5，缓存放在 `.cache/go-build`。
+
+```bash
 make docker-up
-
-# 2. 等待健康检查通过后，运行只使用 database/sql 的版本。
+# 等待 MySQL 健康检查通过后执行：
 make run
-
-# 3. 运行 sqlx 版本，观察同一业务逻辑如何减少映射与绑定样板。
-make run-sqlx
-
-# 4. 运行不依赖 MySQL 的输入校验测试，并同时检查所有包可编译。
+# 也可以直接执行 go run .
 make test
-~~~
+make docker-down
+```
 
-make run 的输出类似：
+默认连接 `root:rootpass@tcp(127.0.0.1:3307)/go_store`。两个项目使用不同容器和端口，可以同时运行。首次启动容器时自动执行 `schema.sql`。
 
-~~~text
-创建商品: id=1 stock=10
-下单成功: order_id=1; 下单后库存=8
-~~~
+连接其他 MySQL：
 
-默认连接地址为 root:rootpass@tcp(127.0.0.1:3307)/go_store。也可以通过下列环境变量连接其他 MySQL：
+```bash
+MYSQL_USER=app MYSQL_PASSWORD=secret MYSQL_ADDRESS=127.0.0.1:3306 MYSQL_DATABASE=go_store make run
+```
 
-~~~bash
-MYSQL_USER=app +MYSQL_PASSWORD=secret +MYSQL_ADDRESS=127.0.0.1:3306 +MYSQL_DATABASE=go_store +make run
-~~~
+清理容器及其数据卷后重新初始化：
 
-需要重新初始化数据时执行：
-
-~~~bash
-# 删除 Docker 数据卷；下一次 docker-up 会重新执行 schema.sql。
+```bash
 make docker-reset
 make docker-up
-~~~
+```
 
-## 代码入口
+## 下单事务
 
-~~~text
-cmd/database-sql-demo/main.go  标准库完整下单流程
-cmd/sqlx-demo/main.go          sqlx 完整下单流程
-internal/store/mysql.go        驱动配置与 database/sql 连接池
-internal/store/product.go      标准库 CRUD、Rows 资源释放和结果判断
-internal/store/order.go        标准库事务、FOR UPDATE 和防超卖条件
-internal/store/sqlx.go         sqlx 映射、命名参数、IN 查询和事务版本
-scripts/schema.sql             MySQL 表结构
-~~~
-
-PlaceOrder 和 PlaceOrderSQLX 都遵守相同的事务边界：
-
-~~~text
-BeginTx
+```text
+BeginTx / BeginTxx
   -> SELECT ... FOR UPDATE
   -> UPDATE products SET stock = stock - quantity
   -> INSERT orders
@@ -82,6 +66,6 @@ BeginTx
 Commit
 
 任意一步失败 -> Rollback
-~~~
+```
 
-事务中的每一条 SQL 都必须通过 tx 执行。若误用外层 db，该语句不会属于当前事务，库存和订单就可能失去一致性。
+事务中的每一条 SQL 都通过 `tx` 执行，保持库存和订单的一致性。

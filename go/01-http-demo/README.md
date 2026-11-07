@@ -9,9 +9,9 @@ http.Handler  定义“如何处理一个 HTTP 请求”
 http.ServeMux 根据 Method 与 URL 找到对应 Handler
 ```
 
-本文以项目源代码和本机 Go 1.26.5 的 `net/http/server.go` 为线索，按照程序实际发生的顺序讲解：先注册路由和构造 Handler 链，再启动 TCP 监听，最后跟踪一条请求如何到达 Controller。
+本文以项目源代码和本机 Go 1.26.5 的 `net/http/server.go` 为线索，按照程序实际发生的顺序讲解：先注册路由和构造 Handler 链，再启动 TCP 监听，最后跟踪一条请求如何到达 Handler。
 
-> 源码片段均保留理解主线所必需的语句；标准库中的 TLS、HTTP/2、连接状态、错误重试等无关细节会用注释或省略号说明。项目的模块声明使用 Go 1.26，Makefile 固定使用本机 Go 1.26.5。
+> 源码片段均保留理解主线所必需的语句；标准库中的 TLS、HTTP/2、连接状态、错误重试等无关细节会用注释或省略号说明。项目模块名为 `http-demo`，语言版本声明为 Go 1.26，Makefile 固定使用本机 Go 1.26.5。
 
 ## 阅读结构
 
@@ -23,7 +23,7 @@ http.ServeMux 根据 Method 与 URL 找到对应 Handler
 
 二、请求处理
 Server 监听 TCP -> Serve 接收连接 -> c.serve 解析 HTTP ->
-serverHandler 选择 Server.Handler -> ServeMux 匹配路由 -> Controller
+serverHandler 选择 Server.Handler -> ServeMux 匹配路由 -> Handler
 ~~~
 
 各节分别回答一个明确问题：
@@ -35,10 +35,30 @@ serverHandler 选择 Server.Handler -> ServeMux 匹配路由 -> Controller
 | 5 | 如何保存路由并在请求时匹配 | `ServeMux` |
 | 6 | 如何在 Handler 外面增加日志、恢复和认证 | `Middleware` |
 | 7 | 谁监听端口，谁解析请求，谁选择 Handler | `Server`、`serverHandler` |
-| 8–10 | 一次业务请求如何穿过 HTTP 层与业务分层 | Controller、Service、Repository |
+| 8–10 | 一次业务请求如何穿过 HTTP 层与业务分层 | Handler、Service、Repository |
 | 11 | 如何运行和验证服务 | 配置、Docker、HTTP 接口 |
 
 ## 1. 先看本项目最终交给 `net/http` 的对象
+
+项目按以下职责组织代码：
+
+```text
+internal/
+├── config/        # 读取配置
+├── handler/       # 解析 HTTP 请求、调用 Service、返回响应
+├── service/       # 业务逻辑
+├── repository/    # 用户、文章和会话的数据读写
+├── infra/
+│   ├── mysql/client.go  # MySQL 连接池初始化
+│   └── redis/client.go  # Redis 客户端初始化
+├── middleware/    # HTTP 中间件
+├── httpapi/       # HTTP 响应辅助函数
+├── model/         # 数据模型
+└── server/        # 路由注册与 HTTP 服务配置
+```
+
+`infra` 负责外部组件的接入与连接配置，`repository` 负责带有业务含义的数据操作。
+后续接入 Kafka、RocketMQ 时，再分别增加 `infra/kafka`、`infra/rocketmq`；消息处理调用 Service 执行业务规则。
 
 入口 [cmd/api/main.go](cmd/api/main.go) 负责创建配置、数据库客户端、Repository、Service，然后调用：
 
@@ -52,19 +72,19 @@ server.New(cfg, authSvc, postSvc).Run()
 mux := http.NewServeMux() // 创建项目私有路由器
 
 // 注册公开路由。
-mux.HandleFunc("POST /api/v1/auth/login", authController.Login)
-mux.HandleFunc("GET /api/v1/posts/{id}", postController.Get)
+mux.HandleFunc("POST /api/v1/auth/login", authHandler.Login)
+mux.HandleFunc("GET /api/v1/posts/{id}", postHandler.Get)
 
 // 为写接口单独包上认证中间件，再注册。
 protected := middleware.Auth(authSvc)
-mux.Handle("POST /api/v1/posts", protected(http.HandlerFunc(postController.Create)))
+mux.Handle("POST /api/v1/posts", protected(http.HandlerFunc(postHandler.Create)))
 
 // 全局链：Logger(Recovery(mux))。
-handler := middleware.Chain(mux, middleware.Logger, middleware.Recovery)
+httpHandler := middleware.Chain(mux, middleware.Logger, middleware.Recovery)
 
 httpServer := &http.Server{
 	Addr:              cfg.HTTPAddr,
-	Handler:           handler,
+	Handler:           httpHandler,
 	ReadHeaderTimeout: 5 * time.Second,
 	ReadTimeout:       15 * time.Second,
 	WriteTimeout:      15 * time.Second,
@@ -80,8 +100,8 @@ http.Server.Handler
     └── Logger(
           Recovery(
             *http.ServeMux
-                ├── GET /api/v1/posts/{id} -> PostController.Get
-                └── POST /api/v1/posts      -> Auth(PostController.Create)
+                ├── GET /api/v1/posts/{id} -> PostHandler.Get
+                └── POST /api/v1/posts      -> Auth(PostHandler.Create)
           )
         )
 ```
@@ -99,7 +119,7 @@ HTTP Server
   -> Recovery
   -> ServeMux 路由匹配
   -> Auth
-  -> PostController.Create
+  -> PostHandler.Create
   -> PostService.Create
   -> PostRepository.Create
   -> MySQL
@@ -112,10 +132,10 @@ HTTP Server
   NewServeMux / Handle / HandleFunc / Middleware 包装
 
 请求阶段（每个请求到来时）
-  Server -> Handler.ServeHTTP -> ServeMux.ServeHTTP -> 具体 Controller
+  Server -> Handler.ServeHTTP -> ServeMux.ServeHTTP -> 具体 Handler
 ```
 
-`Handle`、`HandleFunc` 只在注册阶段执行一次；Controller 与中间件的 `ServeHTTP` 才会随每个请求执行。
+`Handle`、`HandleFunc` 在注册阶段执行；请求到来后，标准库通过 `ServeHTTP` 调用处理链，最终执行对应的业务处理方法。
 
 ## 2. `http.Handler`：标准库 HTTP 的最小接口
 
@@ -142,15 +162,15 @@ ServeHTTP(w http.ResponseWriter, r *http.Request)
 | `http.ResponseWriter` | 向客户端构造响应 | `Header().Set`、`WriteHeader`、`Write` |
 | `*http.Request` | 读取客户端请求 | `Method`、`URL`、`Header`、`Body`、`Context()` |
 
-项目 Controller 的方法签名完全符合一个普通函数 Handler：
+项目 Handler 的方法签名完全符合一个普通函数 Handler：
 
 ```go
-func (ctl *PostController) Get(w http.ResponseWriter, r *http.Request) {
+func (h *PostHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
 	if !ok {
 		return
 	}
-	post, err := ctl.posts.FindByID(r.Context(), id)
+	post, err := h.posts.FindByID(r.Context(), id)
 	if err != nil {
 		writeSQLError(w, err)
 		return
@@ -193,13 +213,13 @@ http.Handler 接口值
 例如本项目的受保护写接口：
 
 ```go
-postController.Create
+postHandler.Create
 // 类型：func(http.ResponseWriter, *http.Request)
 
-http.HandlerFunc(postController.Create)
+http.HandlerFunc(postHandler.Create)
 // 类型：http.HandlerFunc，同时满足 http.Handler
 
-protected(http.HandlerFunc(postController.Create))
+protected(http.HandlerFunc(postHandler.Create))
 // Auth 中间件返回新的 http.Handler
 ```
 
@@ -217,7 +237,7 @@ func (mux *ServeMux) HandleFunc(pattern string, handler func(ResponseWriter, *Re
 | 方法 | 第二个参数 | 适用情况 |
 | --- | --- | --- |
 | `mux.Handle` | `http.Handler` | 已有一个 Handler，例如中间件包装后的结果 |
-| `mux.HandleFunc` | 普通函数 `func(w, r)` | 直接把 Controller 方法或匿名函数注册为路由 |
+| `mux.HandleFunc` | 普通函数 `func(w, r)` | 直接把 Handler 方法或匿名函数注册为路由 |
 
 Go 1.26.5 的关键源码说明了它们最终会汇合：
 
@@ -243,11 +263,11 @@ func (mux *ServeMux) HandleFunc(pattern string, handler func(ResponseWriter, *Re
 因此项目中的两种写法分别是：
 
 ```go
-// 没有额外中间件：Controller 方法是普通函数，使用 HandleFunc 最直接。
-mux.HandleFunc("GET /api/v1/posts", postController.List)
+// 没有额外中间件：Handler 方法是普通函数，使用 HandleFunc 最直接。
+mux.HandleFunc("GET /api/v1/posts", postHandler.List)
 
 // 有 Auth：Auth 返回 http.Handler，使用 Handle。
-mux.Handle("POST /api/v1/posts", protected(http.HandlerFunc(postController.Create)))
+mux.Handle("POST /api/v1/posts", protected(http.HandlerFunc(postHandler.Create)))
 ```
 
 ### 方法形式与包级形式
@@ -273,7 +293,7 @@ func Handle(pattern string, handler Handler) {
 mux := http.NewServeMux()
 ```
 
-这样路由表属于当前 Server 实例，测试可创建独立 Mux，多个服务在同一进程内也不会意外共享全局路由表。与此同时，`http.Server{Handler: handler}` 明确指定了这个项目自己的 Handler 链，因此不会回退到 `DefaultServeMux`。
+这样路由表属于当前 Server 实例，测试可创建独立 Mux，多个服务在同一进程内也不会意外共享全局路由表。与此同时，`http.Server{Handler: httpHandler}` 明确指定了这个项目自己的 Handler 链，因此不会回退到 `DefaultServeMux`。
 
 ## 5. `ServeMux`：注册表与路由匹配器
 
@@ -367,7 +387,7 @@ GET /api/v1/posts/{id}
 └────────────────────── HTTP Method 限制
 ```
 
-请求 `GET /api/v1/posts/42` 匹配后，Controller 使用：
+请求 `GET /api/v1/posts/42` 匹配后，Handler 使用：
 
 ```go
 idText := r.PathValue("id") // "42"
@@ -379,11 +399,11 @@ ServeMux pattern 还支持主机匹配、精确路径、子树路径和多段通
 
 ### 5.4 注册过程
 
-`mux.HandleFunc("GET /api/v1/posts/{id}", postController.Get)` 的注册过程可概括为：
+`mux.HandleFunc("GET /api/v1/posts/{id}", postHandler.Get)` 的注册过程可概括为：
 
 ```text
 HandleFunc
-  -> HandlerFunc(postController.Get)       将函数适配为 Handler
+  -> HandlerFunc(postHandler.Get)       将函数适配为 Handler
   -> mux.register(pattern, handler)        统一注册入口
   -> registerErr                            解析 pattern，找到可能冲突的已有路由
   -> index.possiblyConflictingPatterns      精确检查冲突
@@ -439,7 +459,7 @@ type routingNode struct {
 }
 ~~~
 
-`tree.addPattern(pat, handler)` 按固定层次向下创建或复用节点：Host 在第一层、Method 在第二层、路径段从第三层开始。上例会形成下面的分支，最末端叶子才保存 `PostController.Get`：
+`tree.addPattern(pat, handler)` 按固定层次向下创建或复用节点：Host 在第一层、Method 在第二层、路径段从第三层开始。上例会形成下面的分支，最末端叶子才保存 `PostHandler.Get`：
 
 ~~~text
 tree 根节点
@@ -451,7 +471,7 @@ tree 根节点
                     └── emptyChild       // {id}
                         └── leaf
                             ├── pattern: GET /api/v1/posts/{id}
-                            └── handler: HandlerFunc(PostController.Get)
+                            └── handler: HandlerFunc(PostHandler.Get)
 ~~~
 
 请求 `GET /api/v1/posts/42` 到来时，`tree.match` 依次走 `"" -> "GET" -> "api" -> "v1" -> "posts"`；最后一个 `42` 没有对应字面量子节点，于是走 `emptyChild`。匹配器在这一刻收集通配符值 `["42"]`，随后 `ServeMux.ServeHTTP` 才把它写入 Request，使 `r.PathValue("id")` 能返回 `"42"`。
@@ -552,7 +572,7 @@ func (mux *ServeMux) ServeHTTP(w ResponseWriter, r *Request) {
 }
 ```
 
-这解释了为什么 `r.PathValue("id")` 能在 `PostController.Get` 中读取到值：请求先经过 `ServeMux.ServeHTTP`，它在调用具体 Handler 之前写入了匹配信息。
+这解释了为什么 `r.PathValue("id")` 能在 `PostHandler.Get` 中读取到值：请求先经过 `ServeMux.ServeHTTP`，它在调用具体 Handler 之前写入了匹配信息。
 
 ## 6. 中间件：不是特殊机制，而是 Handler 组合
 
@@ -580,7 +600,7 @@ func Chain(next http.Handler, middlewares ...Middleware) http.Handler {
 调用：
 
 ```go
-handler := middleware.Chain(mux, middleware.Logger, middleware.Recovery)
+httpHandler := middleware.Chain(mux, middleware.Logger, middleware.Recovery)
 ```
 
 循环从右向左，因此构造过程是：
@@ -636,7 +656,7 @@ func Auth(authService *service.AuthService) Middleware {
 			authHeader := r.Header.Get("Authorization")
 			if !strings.HasPrefix(authHeader, "Bearer ") {
 				httpapi.WriteResponse(w, http.StatusUnauthorized, "missing bearer token", nil)
-				return // 不调用 next，Controller 不会执行
+				return // 不调用 next，Handler 不会执行
 			}
 
 			token := strings.TrimPrefix(authHeader, "Bearer ")
@@ -653,7 +673,7 @@ func Auth(authService *service.AuthService) Middleware {
 }
 ```
 
-`Request` 不可变地携带 Context：`r.WithContext(ctx)` 返回新的 Request 值，而不是修改原请求。Controller 后续从 `r.Context()` 获取 `user_id`：
+`Request` 不可变地携带 Context：`r.WithContext(ctx)` 返回新的 Request 值，而不是修改原请求。Handler 后续从 `r.Context()` 获取 `user_id`：
 
 ```go
 userID := middleware.CurrentUserID(r.Context())
@@ -667,7 +687,7 @@ userID := middleware.CurrentUserID(r.Context())
 
 ### 7.1 `Server`：配置、Handler 入口与运行时状态
 
-`Server` 是 HTTP 服务端的总配置和运行时管理者；零值也可用。它不保存具体路由，也不直接拥有 Controller。它通过 `Handler` 字段持有每个 HTTP 请求最终应交给谁的入口。以下是与项目和执行链直接相关的字段：
+`Server` 是 HTTP 服务端的总配置和运行时管理者；零值也可用。它不保存具体路由，也不直接拥有 Handler。它通过 `Handler` 字段持有每个 HTTP 请求最终应交给谁的入口。以下是与项目和执行链直接相关的字段：
 
 ```go
 type Server struct {
@@ -697,7 +717,7 @@ type Server struct {
 | 可观测性与 Context | `ErrorLog`、`ConnState`、`BaseContext`、`ConnContext` | 错误日志、连接状态和连接级上下文 |
 | 内部生命周期 | `inShutdown`、`listeners`、`activeConn` | 供 `Serve`、`Close`、`Shutdown` 协调资源 |
 
-`Handler` 是最关键的衔接字段：它的静态类型是接口 `http.Handler`，因此可以放入 `ServeMux`、`HandlerFunc`、自定义结构体 Handler，或多个中间件包装后的结果。相反，`Server` 并不关心路由树如何存储、Controller 如何创建或 SQL 如何执行。
+`Handler` 是最关键的衔接字段：它的静态类型是接口 `http.Handler`，因此可以放入 `ServeMux`、`HandlerFunc`、自定义结构体 Handler，或多个中间件包装后的结果。相反，`Server` 并不关心路由树如何存储、Handler 如何创建或 SQL 如何执行。
 
 ~~~text
 Addr                         决定 ListenAndServe 绑定到哪里
@@ -859,7 +879,7 @@ serverHandler
        -> Logger.ServeHTTP
             -> Recovery.ServeHTTP
                  -> ServeMux.ServeHTTP
-                      -> Auth(PostController.Create)
+                      -> Auth(PostHandler.Create)
 ~~~
 
 ## 8. 一次 `POST /api/v1/posts` 的完整执行路径
@@ -874,11 +894,11 @@ serverHandler
 5. Logger.ServeHTTP 记录开始时间，调用 Recovery。
 6. Recovery.ServeHTTP 设置 defer recover，调用 ServeMux。
 7. ServeMux.ServeHTTP 按 Method=POST、Path=/api/v1/posts 匹配路由。
-8. 匹配到注册时保存的 Handler：Auth(HandlerFunc(PostController.Create))。
+8. 匹配到注册时保存的 Handler：Auth(HandlerFunc(PostHandler.Create))。
 9. Auth 检查 Bearer Token，调用 AuthService.ParseToken，并将 user_id 放入新 Request Context。
-10. PostController.Create 解码 JSON，请求 Service 创建文章。
+10. PostHandler.Create 解码 JSON，请求 Service 创建文章。
 11. PostService 调用 PostRepository；Repository 对 MySQL 执行 INSERT 和查询。
-12. Controller 使用 httpapi.WriteResponse 写入 201 JSON。
+12. Handler 使用 httpapi.WriteResponse 写入 201 JSON。
 13. 调用栈逐层返回；Recovery 没有捕获到 panic；Logger 记录耗时。
 ```
 
@@ -888,11 +908,11 @@ serverHandler
 h.ServeHTTP(w, r)
 ```
 
-从标准库角度看，路由、认证中间件、Controller 都只是不同层级的 `http.Handler`。这也是 `net/http` 的设计核心：用一个极小接口把路由、框架、中间件和业务处理器统一起来。
+从标准库角度看，路由、认证中间件，以及经 `HandlerFunc` 适配的业务处理方法，都通过 `http.Handler` 接口参与请求处理。这也是 `net/http` 的设计核心：用一个极小接口把路由、中间件和业务处理器统一起来。
 
 ## 9. 响应写入与请求体读取的边界
 
-Controller 不直接使用 `json.NewEncoder`，而通过 [internal/httpapi/json.go](internal/httpapi/json.go) 的帮助函数：
+Handler 不直接使用 `json.NewEncoder`，而通过 [internal/httpapi/json.go](internal/httpapi/json.go) 的帮助函数：
 
 ```go
 func WriteJSON(w http.ResponseWriter, status int, data any) {
@@ -913,14 +933,14 @@ if err := decoder.Decode(dst); err != nil { ... }
 if err := decoder.Decode(&struct{}{}); err != io.EOF { ... }
 ```
 
-它依次限制请求体最大 1 MiB、拒绝未知字段、拒绝多个连续 JSON 值。HTTP Controller 负责把解码错误映射为 400；Service 与 Repository 不需要知道 JSON 格式或 `ResponseWriter` 的存在。
+它依次限制请求体最大 1 MiB、拒绝未知字段、拒绝多个连续 JSON 值。HTTP Handler 负责把解码错误映射为 400；Service 与 Repository 不需要知道 JSON 格式或 `ResponseWriter` 的存在。
 
-## 10. Controller、Service、Repository 的边界
+## 10. Handler、Service、Repository 的边界
 
 去掉 Gin 不会改变业务分层：
 
 ```text
-Controller
+Handler
   HTTP 输入输出：读取 PathValue、Header、Body，决定 HTTP 状态码与 JSON
         ↓
 Service
@@ -932,7 +952,7 @@ Repository
 MySQL / Redis
 ```
 
-例如 `Auth` 中间件需要认证业务能力，因此它调用 `AuthService.ParseToken`；但它不写 Redis 命令。`PostController.Create` 读取 `user_id` 和 JSON；但它不写 SQL。这样的依赖方向使 HTTP 框架可以替换，而 Service 和 Repository 基本不受影响。
+例如 `Auth` 中间件需要认证业务能力，因此它调用 `AuthService.ParseToken`；但它不写 Redis 命令。`PostHandler.Create` 读取 `user_id` 和 JSON；但它不写 SQL。这样的依赖方向使 HTTP 框架可以替换，而 Service 和 Repository 基本不受影响。
 
 ## 11. 启动与验证
 

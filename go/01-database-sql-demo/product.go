@@ -1,4 +1,4 @@
-package store
+package main
 
 import (
 	"context"
@@ -13,7 +13,7 @@ var (
 	ErrInvalidProduct  = errors.New("invalid product")
 )
 
-// Product 同时服务 database/sql 和 sqlx。db tag 会在 sqlx 映射时使用。
+// Product 表示商品数据。
 type Product struct {
 	ID         int64     `db:"id"`
 	SKU        string    `db:"sku"`

@@ -1,4 +1,4 @@
-module gin-demo-v1
+module http-demo
 
 go 1.26
 

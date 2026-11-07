@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"gin-demo-v1/internal/model"
-	"gin-demo-v1/internal/repository"
+	"http-demo/internal/model"
+	"http-demo/internal/repository"
 )
 
 type PostService struct{ posts *repository.PostRepository }

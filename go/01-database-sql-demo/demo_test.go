@@ -1,4 +1,4 @@
-package store
+package main
 
 import (
 	"context"
@@ -43,13 +43,13 @@ func TestProductMutationInput(t *testing.T) {
 	if _, err := UpdateProductName(ctx, nil, 0, "keyboard"); !errors.Is(err, ErrInvalidProduct) {
 		t.Fatalf("invalid update error = %v, want ErrInvalidProduct", err)
 	}
-	if _, err := UpdateProductNameSQLX(ctx, nil, 1, ""); !errors.Is(err, ErrInvalidProduct) {
+	if _, err := UpdateProductName(ctx, nil, 1, ""); !errors.Is(err, ErrInvalidProduct) {
 		t.Fatalf("empty-name update error = %v, want ErrInvalidProduct", err)
 	}
 	if _, err := DeleteProduct(ctx, nil, 0); !errors.Is(err, ErrInvalidProduct) {
 		t.Fatalf("invalid delete error = %v, want ErrInvalidProduct", err)
 	}
-	if _, err := DeleteProductSQLX(ctx, nil, -1); !errors.Is(err, ErrInvalidProduct) {
-		t.Fatalf("invalid sqlx delete error = %v, want ErrInvalidProduct", err)
+	if _, err := DeleteProduct(ctx, nil, -1); !errors.Is(err, ErrInvalidProduct) {
+		t.Fatalf("invalid delete error = %v, want ErrInvalidProduct", err)
 	}
 }

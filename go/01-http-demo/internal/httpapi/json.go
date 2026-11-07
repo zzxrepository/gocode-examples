@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"gin-demo-v1/internal/model"
+	"http-demo/internal/model"
 )
 
 func WriteJSON(w http.ResponseWriter, status int, data any) {

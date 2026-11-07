@@ -4,12 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"gin-demo-v1/internal/model"
+	"http-demo/internal/model"
 )
 
-type UserRepository struct{ db *sql.DB }
+type UserRepository struct{ 
+	db *sql.DB 
+}
 
-func NewUserRepository(db *sql.DB) *UserRepository { return &UserRepository{db: db} }
+func NewUserRepository(db *sql.DB) *UserRepository { 
+	return &UserRepository{db: db} 
+}
 
 func (r *UserRepository) Create(ctx context.Context, username, passwordHash string) (*model.User, error) {
 	result, err := r.db.ExecContext(ctx, "INSERT INTO users (username, password_hash) VALUES (?, ?)", username, passwordHash)
