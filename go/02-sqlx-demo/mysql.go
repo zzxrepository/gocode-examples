@@ -4,59 +4,51 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
+	"os"
 	"time"
 
-	drivermysql "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
+	mysql "github.com/go-sql-driver/mysql"
 )
 
-// MySQLConfig 将连接信息集中在启动阶段，避免业务 SQL 关心 DSN 细节。
-type MySQLConfig struct {
-	User     string
-	Password string
-	Address  string
-	Database string
-}
-
-// OpenMySQL 创建并验证可复用的 database/sql 连接池。
-func OpenMySQL(ctx context.Context, cfg MySQLConfig) (*sql.DB, error) {
-	driverCfg := drivermysql.NewConfig()
-	driverCfg.User = cfg.User
-	driverCfg.Passwd = cfg.Password
-	driverCfg.Net = "tcp"
-	driverCfg.Addr = cfg.Address
-	driverCfg.DBName = cfg.Database
-
-	// DATE/DATETIME 查询结果需要扫描到 time.Time，因此由驱动解析时间。
-	driverCfg.ParseTime = true
-	driverCfg.Loc = time.Local
-
-	// 连接级超时：分别限制拨号、读取和写入网络 I/O。
-	driverCfg.Timeout = 3 * time.Second
-	driverCfg.ReadTimeout = 5 * time.Second
-	driverCfg.WriteTimeout = 5 * time.Second
-
-	// sql.Open 返回的是池句柄，通常并未立刻创建 TCP 连接。
-	db, err := sql.Open("mysql", driverCfg.FormatDSN())
+// openDatabase 先创建句柄，再通过 PingContext 建立/验证实际连接。
+func openDatabase(ctx context.Context, dsn string) (*sql.DB, error) {
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("open MySQL handle: %w", err)
+		return nil, fmt.Errorf("open mysql: %w", err)
 	}
-
-	// 以下设置属于 database/sql 的连接池，不属于 MySQL 驱动。
+	// 当前 MySQL 驱动的 OpenConnector 只解析 DSN；此时尚未拨号。
+	stats := db.Stats()
+	log.Printf("Open 后连接池: open=%d idle=%d in_use=%d", stats.OpenConnections, stats.Idle, stats.InUse)
 	db.SetMaxOpenConns(20)
-	db.SetMaxIdleConns(20)
-	db.SetConnMaxLifetime(3 * time.Minute)
-	db.SetConnMaxIdleTime(time.Minute)
-
-	// PingContext 会借连接或新建连接，因此能验证地址、网络和认证信息。
-	if err := db.PingContext(ctx); err != nil {
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxIdleTime(5 * time.Minute)
+	db.SetConnMaxLifetime(time.Hour)
+	pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := db.PingContext(pingCtx); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("ping MySQL: %w", err)
+		return nil, fmt.Errorf("ping mysql: %w", err)
 	}
+	stats = db.Stats()
+	log.Printf("Ping 后连接池: open=%d idle=%d in_use=%d", stats.OpenConnections, stats.Idle, stats.InUse)
 	return db, nil
 }
 
-// NewSQLX 只包装现有 *sql.DB，因此两者共享同一连接池。
-func NewSQLX(db *sql.DB) *sqlx.DB {
-	return sqlx.NewDb(db, "mysql")
+// localDSN 始终连接本机 TCP 3306；FormatDSN 负责正确组织账号与密码。
+func localDSN(database string) string {
+	cfg := mysql.NewConfig()
+	cfg.User = os.Getenv("MYSQL_USER")
+	if cfg.User == "" {
+		cfg.User = "root"
+	}
+	cfg.Passwd = os.Getenv("MYSQL_PASSWORD")
+	cfg.Net = "tcp"
+	cfg.Addr = "127.0.0.1:3306"
+	cfg.DBName = database
+	cfg.Timeout = 3 * time.Second
+	cfg.ReadTimeout = 5 * time.Second
+	cfg.WriteTimeout = 5 * time.Second
+	cfg.Params = map[string]string{"charset": "utf8mb4"}
+	return cfg.FormatDSN()
 }

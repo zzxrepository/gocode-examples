@@ -1,71 +1,77 @@
-# Go MySQL 数据访问 Demo：database/sql
+# Go 操作 MySQL：database/sql
 
-使用 Go 标准库 `database/sql`，显式演示参数绑定、结果扫描与事务。
+使用单张 `person` 表演示连接、增删改查、SQL NULL 与空字符串、缺失记录和事务提交/回滚。
 
-这个独立项目使用“下单扣库存”演示数据库访问：
+通过 `QueryRowContext`、`Rows.Next` 和 `Scan` 展示结果读取的完整过程。 对照项目：[`02-sqlx-demo`](../02-sqlx-demo)。
 
-```text
-创建商品 -> 查询与更新 -> 锁定库存 -> 扣库存 -> 创建订单 -> 写入订单项 -> 删除临时商品
-```
-
-重点 API：ExecContext、QueryRowContext、Rows、BeginTx。另一个独立示例见[配套项目](../02-sqlx-demo)。
-
-## 文件结构
+## 文件
 
 ```text
 01-database-sql-demo/
-├── go.mod
-├── main.go              # 演示入口、环境变量和执行步骤
-├── mysql.go             # 驱动配置与连接池初始化
-├── product.go           # 商品数据、输入校验及 CRUD
-├── order.go             # 下单校验和事务
-├── demo_test.go         # 不依赖 MySQL 的输入边界测试
-├── docker-compose.yml   # 本示例的 MySQL 容器
-├── schema.sql           # 建表脚本
+├── main.go                     # 演示步骤与输出、-init
+├── mysql.go                    # 本机连接配置、Open、连接池、PingContext
+├── model.go                    # Person、db 标签、sql.NullString
+├── person.go                   # 数据操作
+├── schema.go                   # -init 执行的建表与初始数据
+├── schema.sql                  # 同样的 SQL，可手动执行
+├── person_integration_test.go  # 惰性建连及本机 MySQL 集成测试
+├── go.mod / go.sum
 └── Makefile
 ```
 
-所有 Go 文件使用 `package main`，直接放在根目录。项目是命令行示例，当前不需要独立的 handler、service 或 repository 包。
+## 准备本机 MySQL
 
-## 运行
+使用 Go 1.26.5 和已经启动的本机 MySQL。连接地址固定为 `127.0.0.1:3306`。
 
-需要 Docker Compose 和 Go 1.26.5。Makefile 使用本机 Go 1.26.5，缓存放在 `.cache/go-build`。
+先使用自己的本机账号登录，创建学习数据库：
 
 ```bash
-make docker-up
-# 等待 MySQL 健康检查通过后执行：
+mysql -u root -p
+```
+
+```sql
+CREATE DATABASE IF NOT EXISTS go_mysql_demo CHARACTER SET utf8mb4;
+```
+
+在运行示例的终端设置账号、密码和库名：
+
+```bash
+export MYSQL_USER='root'
+export MYSQL_PASSWORD='替换为你的本机密码'
+export MYSQL_DATABASE='go_mysql_demo'
+make init
 make run
-# 也可以直接执行 go run .
+```
+
+`MYSQL_USER` 默认是 `root`，`MYSQL_DATABASE` 默认是 `go_mysql_demo`；密码从 `MYSQL_PASSWORD` 读取，代码没有硬编码密码。连接配置由 MySQL 驱动的 `Config.FormatDSN` 生成。
+
+`make init` 等同于 `go run . -init`，只创建 person 表并补充 alice、bob 两条初始记录。重复初始化不重置已有记录。两个项目使用相同表结构，可以共用这个学习数据库。
+
+Makefile 的 GO/GOROOT 默认指向本机 Go 1.26.5 SDK，可以通过 make 参数覆盖。直接使用 `go run .` 时，应确保 go、GOROOT 与工具链版本一致。
+
+## 观察结果
+
+程序按顺序执行：
+
+1. 打印 Open 后和 Ping 后的连接池状态，观察实际连接何时建立。
+2. 插入带动态后缀的 charlie 用户，查询并更新其年龄。
+3. 查询 bob，观察 SQL NULL 对应 `Email.Valid == false`。
+4. 查询多行。
+5. 在事务中两次插入同一用户名；确认 MySQL 1062 错误，并检查第一次插入也已回滚。
+6. 删除本次 charlie 用户，确认再次查询得到 `sql.ErrNoRows`。
+
+用户名后缀、自增 ID 和记录数量会随运行变化；回滚也可能消耗自增编号。
+
+## 测试
+
+```bash
 make test
-make docker-down
+# 沿用上面设置的本机账号和密码，执行真实数据库测试：
+MYSQL_INTEGRATION=1 make test
 ```
 
-默认连接 `root:rootpass@tcp(127.0.0.1:3307)/go_store`。两个项目使用不同容器和端口，可以同时运行。首次启动容器时自动执行 `schema.sql`。
+未设置 `MYSQL_INTEGRATION=1` 时，集成测试会跳过；惰性建连测试不依赖 MySQL 服务。
 
-连接其他 MySQL：
+集成测试连接本机 3306，要求账号有创建和删除数据库的权限；每次创建独立的 `go_person_demo_test_*` 库，结束时删除。测试不清空 `MYSQL_DATABASE` 指定的学习库。
 
-```bash
-MYSQL_USER=app MYSQL_PASSWORD=secret MYSQL_ADDRESS=127.0.0.1:3306 MYSQL_DATABASE=go_store make run
-```
-
-清理容器及其数据卷后重新初始化：
-
-```bash
-make docker-reset
-make docker-up
-```
-
-## 下单事务
-
-```text
-BeginTx / BeginTxx
-  -> SELECT ... FOR UPDATE
-  -> UPDATE products SET stock = stock - quantity
-  -> INSERT orders
-  -> INSERT order_items
-Commit
-
-任意一步失败 -> Rollback
-```
-
-事务中的每一条 SQL 都通过 `tx` 执行，保持库存和订单的一致性。
+测试覆盖 CRUD、NULL 与空字符串、缺失记录、同值更新、单连接池等待和 Context 超时、事务提交与回滚、完整演示流程。
