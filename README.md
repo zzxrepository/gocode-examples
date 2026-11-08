@@ -7,6 +7,9 @@
 | 项目 | 对应主题 | 运行入口 |
 | --- | --- | --- |
 | [`go/01-closure-demo`](go/01-closure-demo/) | 闭包：计数器、捕获变量、保存函数与回调 | `go run .`；`go run ./saved-function` |
+| [`go/01-database-sql-demo`](go/01-database-sql-demo/) | MySQL 标准库：连接池、CRUD、NULL 与事务 | `make init`；`make run` |
+| [`go/02-sqlx-demo`](go/02-sqlx-demo/) | sqlx：结构体映射、命名参数与 IN 查询 | `make init`；`make run` |
+| [`go/03-gorm-demo`](go/03-gorm-demo/) | GORM：模型、CRUD、零值、软删除、事务与关联查询 | `make init`；`make run` |
 | `go/01-http-demo` | `net/http` 服务端、`Handler`、`ServeMux` 与分层博客 API | `go run ./cmd/api` |
 | `go/01-gin-demo` | Gin 路由、中间件、Context 与分层博客 API | `go run ./cmd/api` |
 | `go/01-kratos-demo` | Kratos 微服务、网关、用户服务与文章服务 | 参见项目 README |
